@@ -142,7 +142,7 @@ export const Login: React.FC = () => {
                 style={{
                   borderColor: email
                     ? isEmailValid
-                      ? "#3B82F6"
+                      ? "#43A047"
                       : "#f44336"
                     : "#e0e0e0",
                 }}
@@ -176,7 +176,7 @@ export const Login: React.FC = () => {
                 style={{
                   borderColor: password
                     ? isPasswordValid
-                      ? "#3B82F6"
+                      ? "#43A047"
                       : "#f44336"
                     : "#e0e0e0",
                 }}

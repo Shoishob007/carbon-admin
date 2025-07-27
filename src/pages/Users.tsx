@@ -1,4 +1,9 @@
-import { useState } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAuthStore } from "@/store/auth";
+import { useUsersStore } from "@/store/users";
+import { mockUsers } from "@/data/mockUsers";
 import {
   Card,
   CardContent,
@@ -19,7 +24,6 @@ import {
   UserCheck,
   UserX,
   Mail,
-  Phone,
   Building,
   Calendar,
 } from "lucide-react";
@@ -49,131 +53,63 @@ import {
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-const users = [
-  {
-    id: 1,
-    name: "Sarah Johnson",
-    email: "sarah.johnson@ecotech.com",
-    company: "EcoTech Solutions",
-    role: "admin",
-    plan: "Carbon-Reduction",
-    status: "active",
-    joinDate: "2024-01-15",
-    lastLogin: "2024-06-15",
-    emissions: 1240,
-    offsets: 1350,
-    avatar:
-      "https://images.unsplash.com/photo-1494790108755-2616b612b977?w=40&h=40&fit=crop&crop=face",
-  },
-  {
-    id: 2,
-    name: "Michael Chen",
-    email: "m.chen@greenmanuf.com",
-    company: "Green Manufacturing Co",
-    role: "user",
-    plan: "Sustainability",
-    status: "active",
-    joinDate: "2024-02-20",
-    lastLogin: "2024-06-14",
-    emissions: 2890,
-    offsets: 3100,
-    avatar:
-      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face",
-  },
-  {
-    id: 3,
-    name: "Emily Rodriguez",
-    email: "emily@sustainablelogistics.com",
-    company: "Sustainable Logistics Ltd",
-    role: "user",
-    plan: "Starter Green",
-    status: "inactive",
-    joinDate: "2024-03-10",
-    lastLogin: "2024-05-28",
-    emissions: 450,
-    offsets: 425,
-    avatar:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=40&h=40&fit=crop&crop=face",
-  },
-  {
-    id: 4,
-    name: "David Park",
-    email: "d.park@cleanenergy.com",
-    company: "CleanEnergy Corp",
-    role: "user",
-    plan: "Carbon-Reduction",
-    status: "pending",
-    joinDate: "2024-06-01",
-    lastLogin: "2024-06-16",
-    emissions: 890,
-    offsets: 920,
-    avatar:
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face",
-  },
-  {
-    id: 5,
-    name: "Lisa Thompson",
-    email: "lisa@renewabletech.com",
-    company: "Renewable Tech Inc",
-    role: "user",
-    plan: "Starter Green",
-    status: "active",
-    joinDate: "2024-04-12",
-    lastLogin: "2024-06-15",
-    emissions: 320,
-    offsets: 340,
-    avatar:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=40&h=40&fit=crop&crop=face",
-  },
-];
-
-const roles = ["All Users", "admin", "user"];
-const statuses = ["All Status", "active", "inactive", "pending"];
-const plans = ["All Plans", "Starter Green", "Carbon-Reduction", "Sustainability"];
-
 export default function Users() {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const { apiUsers, loading, fetchUsers } = useUsersStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState("All Users");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
   const [selectedPlan, setSelectedPlan] = useState("All Plans");
-  const [newUser, setNewUser] = useState({
-    name: "",
-    email: "",
-    company: "",
-    role: "user",
-    plan: "Starter Green",
-  });
 
-  const filteredUsers = users.filter((user) => {
+
+ useEffect(() => {
+    fetchUsers(accessToken);
+  }, [accessToken, fetchUsers]);
+
+ const filteredApiUsers = apiUsers.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.company.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = selectedRole === "All Users" || user.role === selectedRole;
+      (user.business_profile?.company_name
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ??
+        false);
+
+    const matchesRole =
+      selectedRole === "All Users" || user.role === selectedRole;
+
     const matchesStatus =
-      selectedStatus === "All Status" || user.status === selectedStatus;
-    const matchesPlan = selectedPlan === "All Plans" || user.plan === selectedPlan;
+      selectedStatus === "All Status" ||
+      (selectedStatus === "active" && user.is_active) ||
+      (selectedStatus === "inactive" && !user.is_active);
+
+    const matchesPlan =
+      selectedPlan === "All Plans" ||
+      (selectedPlan === "No Plan" && !user.subscription) ||
+      (user.subscription?.plan_name === selectedPlan);
 
     return matchesSearch && matchesRole && matchesStatus && matchesPlan;
   });
 
-  const handleCreateUser = () => {
-    console.log("Creating new user:", newUser);
-  };
+  const availablePlans = [
+    "All Plans",
+    "No Plan",
+    ...Array.from(
+      new Set(
+        apiUsers
+          .map((user) => user.subscription?.plan_name)
+          .filter(Boolean) as string[]
+      )
+    ),
+  ];
 
-  const handleEditUser = (id: number) => {
-    console.log("Editing user:", id);
-  };
+  const totalEmissions = mockUsers.reduce((sum, user) => sum + user.emissions, 0);
+  const totalOffsets = mockUsers.reduce((sum, user) => sum + user.offsets, 0);
 
-  const handleDeleteUser = (id: number) => {
-    console.log("Deleting user:", id);
-  };
 
-  const totalEmissions = users.reduce((sum, user) => sum + user.emissions, 0);
-  const totalOffsets = users.reduce((sum, user) => sum + user.offsets, 0);
-
-  return (
+   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header and Add User button */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
@@ -197,105 +133,12 @@ export default function Users() {
                 Create a new user account for carbon tracking platform
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name" className="text-right">
-                    Name
-                  </Label>
-                  <Input
-                    id="name"
-                    value={newUser.name}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, name: e.target.value })
-                    }
-                    placeholder="John Doe"
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-right">
-                    Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, email: e.target.value })
-                    }
-                    placeholder="john@company.com"
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="company" className="text-right">
-                    Company
-                  </Label>
-                  <Input
-                    id="company"
-                    value={newUser.company}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, company: e.target.value })
-                    }
-                    placeholder="Company Name"
-                    className="col-span-3"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role" className="text-right">
-                    Role
-                  </Label>
-                  <Select
-                    value={newUser.role}
-                    onValueChange={(value) =>
-                      setNewUser({ ...newUser, role: value })
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border">
-                      <SelectItem value="user">User</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="plan" className="text-right">
-                    Plan
-                  </Label>
-                  <Select
-                    value={newUser.plan}
-                    onValueChange={(value) =>
-                      setNewUser({ ...newUser, plan: value })
-                    }
-                  >
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover border">
-                      {plans
-                        .filter((plan) => plan !== "All")
-                        .map((plan) => (
-                          <SelectItem key={plan} value={plan}>
-                            {plan}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-            <Button onClick={handleCreateUser} className="bg-carbon-gradient">
-              Create User
-            </Button>
+            {/* Add User Form */}
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Statistics Cards - using mockUsers */}
       <div className="grid gap-6 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -304,11 +147,10 @@ export default function Users() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-carbon-700">
-              {users.length}
+              {apiUsers.length}
             </div>
             <p className="text-xs text-muted-foreground">
-              {users.filter((user) => user.status === "active").length} active
-              users
+              {apiUsers.filter((user) => user.is_active).length} active users
             </p>
           </CardContent>
         </Card>
@@ -357,7 +199,7 @@ export default function Users() {
         </Card>
       </div>
 
-      {/* Filters and Search */}
+      {/* User Table - using apiUsers */}
       <Card>
         <CardHeader>
           <CardTitle>User Directory</CardTitle>
@@ -382,11 +224,13 @@ export default function Users() {
                 <SelectValue placeholder="Filter by role" />
               </SelectTrigger>
               <SelectContent className="bg-popover border">
-                {roles.map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {role}
-                  </SelectItem>
-                ))}
+                {["All Users", "super_admin", "individual", "business"].map(
+                  (role) => (
+                    <SelectItem key={role} value={role}>
+                      {role}
+                    </SelectItem>
+                  )
+                )}
               </SelectContent>
             </Select>
             <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -394,7 +238,7 @@ export default function Users() {
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
               <SelectContent className="bg-popover border">
-                {statuses.map((status) => (
+                {["All Status", "active", "inactive"].map((status) => (
                   <SelectItem key={status} value={status}>
                     {status}
                   </SelectItem>
@@ -406,7 +250,7 @@ export default function Users() {
                 <SelectValue placeholder="Filter by plan" />
               </SelectTrigger>
               <SelectContent className="bg-popover border">
-                {plans.map((plan) => (
+                {availablePlans.map((plan) => (
                   <SelectItem key={plan} value={plan}>
                     {plan}
                   </SelectItem>
@@ -423,18 +267,20 @@ export default function Users() {
                 <TableHead>Role</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Carbon Impact</TableHead>
-                <TableHead>Last Login</TableHead>
+                <TableHead>API Usage</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
+              {filteredApiUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarImage
+                          src={user.profile_image || ""}
+                          alt={user.name}
+                        />
                         <AvatarFallback className="bg-carbon-gradient text-white">
                           {user.name
                             .split(" ")
@@ -454,16 +300,16 @@ export default function Users() {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Building className="h-4 w-4 text-muted-foreground" />
-                      {user.company}
+                      {user.business_profile?.company_name || "N/A"}
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
                       className={
-                        user.role === "admin"
+                        user.role === "super_admin"
                           ? "border-red-500 text-red-700"
-                          : user.role === "manager"
+                          : user.role === "business"
                           ? "border-blue-500 text-blue-700"
                           : "border-gray-500 text-gray-700"
                       }
@@ -472,48 +318,35 @@ export default function Users() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{user.plan}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        user.status === "active" ? "default" : "secondary"
-                      }
-                      className={
-                        user.status === "active"
-                          ? "bg-green-500"
-                          : user.status === "pending"
-                          ? "bg-yellow-500"
-                          : "bg-gray-500"
-                      }
-                    >
-                      {user.status === "active" ? (
-                        <UserCheck className="mr-1 h-3 w-3" />
-                      ) : user.status === "inactive" ? (
-                        <UserX className="mr-1 h-3 w-3" />
-                      ) : (
-                        <Calendar className="mr-1 h-3 w-3" />
-                      )}
-                      {user.status}
+                    <Badge variant="secondary">
+                      {user.subscription?.plan_name || "No plan"}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="space-y-1">
-                      <div className="text-sm">
-                        <span className="text-orange-600">
-                          {user.emissions}t
-                        </span>{" "}
-                        emitted
-                      </div>
-                      <div className="text-sm">
-                        <span className="text-green-600">{user.offsets}t</span>{" "}
-                        offset
-                      </div>
-                    </div>
+                    <Badge
+                      variant={user.is_active ? "default" : "secondary"}
+                      className={
+                        user.is_active ? "bg-green-500" : "bg-gray-500"
+                      }
+                    >
+                      {user.is_active ? (
+                        <UserCheck className="mr-1 h-3 w-3" />
+                      ) : (
+                        <UserX className="mr-1 h-3 w-3" />
+                      )}
+                      {user.is_active ? "active" : "inactive"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-muted-foreground">
-                      {user.lastLogin}
+                    <div className="text-sm">
+                      <span className="text-carbon-600">
+                        {user.profile.api_requests_made}
+                      </span>{" "}
+                      /{" "}
+                      <span className="text-carbon-400">
+                        {user.profile.total_requests_limit}
+                      </span>{" "}
+                      requests
                     </div>
                   </TableCell>
                   <TableCell>
@@ -521,14 +354,14 @@ export default function Users() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleEditUser(user.id)}
+                        onClick={() => console.log("Edit user:", user.id)}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteUser(user.id)}
+                        onClick={() => console.log("Delete user:", user.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

@@ -10,9 +10,8 @@ import Faqs from "./pages/Faq";
 import Billing from "./pages/Billing";
 import Queries from "./pages/Queries";
 import OffsetProjects from "./pages/Offset-Projects";
-import {Login} from "./pages/Login";
+import { Login } from "./pages/Login";
 import Register from "./pages/Register";
-
 
 // route objects
 export interface AppRoute {
@@ -23,20 +22,81 @@ export interface AppRoute {
 }
 
 export const routes: AppRoute[] = [
-  { path: "/", component: Dashboard, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
-  { path: "/api-docs", component: ApiDocs, layout: "dashboard", roles: ["super_admin", "business"] },
-  { path: "/blogs", component: Blogs, layout: "dashboard", roles: ["super_admin"] },
-  { path: "/blogs/create", component: Blogs, layout: "dashboard", roles: ["super_admin"] },
-  { path: "/subscriptions", component: Subscriptions, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
-  { path: "/subscriptions/pricing", component: Subscriptions, layout: "dashboard", roles: ["super_admin", "business", "individual"] },  { path: "/users", component: Users, layout: "dashboard", roles: ["super_admin", "business"] },
-  { path: "/settings", component: Settings, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
-  { path: "/profile", component: Settings, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
-  { path: "/offset-projects", component: OffsetProjects, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
-  { path: "/faqs", component: Faqs, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
-  { path: "/billing", component: Billing, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
-  { path: "/queries", component: Queries, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
-  { path: "/login", component: Login},
-    { path: "/register", component: Register},
+  {
+    path: "/",
+    component: Dashboard,
+    layout: "dashboard",
+    roles: ["super_admin", "business", "individual"],
+  },
+  {
+    path: "/api-docs",
+    component: ApiDocs,
+    layout: "dashboard",
+    roles: ["super_admin", "business"],
+  },
+  {
+    path: "/blogs",
+    component: Blogs,
+    layout: "dashboard",
+    roles: ["super_admin"],
+  },
+  {
+    path: "/blogs/create",
+    component: Blogs,
+    layout: "dashboard",
+    roles: ["super_admin"],
+  },
+  {
+    path: "/subscriptions",
+    component: Subscriptions,
+    layout: "dashboard",
+    roles: ["super_admin", "business"],
+  },
+  {
+    path: "/subscriptions/pricing",
+    component: Subscriptions,
+    layout: "dashboard",
+    roles: ["super_admin", "business"],
+  },
+  {
+    path: "/users",
+    component: Users,
+    layout: "dashboard",
+    roles: ["super_admin"],
+  },
+  {
+    path: "/settings",
+    component: Settings,
+    layout: "dashboard",
+    roles: ["super_admin", "business", "individual"],
+  },
+  // { path: "/profile", component: Settings, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
+  {
+    path: "/offset-projects",
+    component: OffsetProjects,
+    layout: "dashboard",
+    roles: ["super_admin", "business"],
+  },
+  {
+    path: "/faqs",
+    component: Faqs,
+    layout: "dashboard",
+    roles: ["super_admin"],
+  },
+  {
+    path: "/billing",
+    component: Billing,
+    layout: "dashboard",
+    roles: ["super_admin", "business"],
+  },
+  {
+    path: "/queries",
+    component: Queries,
+    layout: "dashboard",
+    roles: ["super_admin"],
+  },
+  { path: "/login", component: Login },
+  { path: "/register", component: Register },
 
-  { path: "*", component: NotFound }
+  { path: "*", component: NotFound },
 ];
