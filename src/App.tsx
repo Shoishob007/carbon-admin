@@ -5,12 +5,23 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { routes, AppRoute } from "./routesConfig.ts";
 import { DashboardLayout } from "./components/DashboardLayout";
+import { RequireAuth } from "./components/RequireAuth.tsx";
+import { RequireRole } from "./components/RequireRole.tsx";
 
 const queryClient = new QueryClient();
 
 const getLayout = (route: AppRoute, element: JSX.Element) => {
   if (route.layout === "dashboard") {
-    return <DashboardLayout>{element}</DashboardLayout>;
+    const wrapped = route.roles ? (
+      <RequireRole allowedRoles={route.roles}>{element}</RequireRole>
+    ) : (
+      element
+    );
+    return (
+      <RequireAuth>
+        <DashboardLayout>{wrapped}</DashboardLayout>
+      </RequireAuth>
+    );
   }
   return element;
 };

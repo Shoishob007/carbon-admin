@@ -13,6 +13,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
+import { useAuthStore } from "@/store/auth";
 
 const emissionData = [
   { month: 'Jan', emissions: 2400, offset: 2000 },
@@ -40,20 +41,28 @@ const userGrowth = [
 ];
 
 export default function Dashboard() {
+    const user = useAuthStore((s) => s.user);
+    const currentDate = new Date();
+const formattedDate = currentDate.toLocaleDateString("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome Section */}
       <div className="bg-carbon-gradient rounded-lg p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">Welcome back, Admin!</h1>
+            <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.name}</h1>
             <p className="text-carbon-100">
               Track and manage carbon emissions and offset projects across your platform
             </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold">July 2025</div>
-            <div className="text-carbon-100">Carbon Impact Dashboard</div>
+            <div className="text-2xl font-bold">{formattedDate}</div>
+            <div className="text-carbon-100">Your Emission Lab Dashboard</div>
           </div>
         </div>
       </div>

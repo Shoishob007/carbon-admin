@@ -35,22 +35,26 @@ import {
 } from "@/components/ui/collapsible";
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { useAuthStore } from "@/store/auth";
 
 const mainMenuItems = [
   {
     title: "Dashboard",
     url: "/",
     icon: LayoutDashboard,
+    roles: ["super_admin", "business", "individual"],
   },
   {
     title: "User Management",
     url: "/users",
     icon: Users,
+    roles: ["super_admin", "business"],
   },
   {
     title: "Blogs",
     url: "/blogs",
     icon: BookOpen,
+    roles: ["super_admin", "business", "individual"],
   },
   {
     title: "Subscriptions",
@@ -60,21 +64,25 @@ const mainMenuItems = [
       { title: "All Plans", url: "/subscriptions" },
       { title: "Pricing", url: "/subscriptions/pricing" },
     ],
+    roles: ["super_admin", "business", "individual"],
   },
   {
     title: "FAQ",
     url: "/faqs",
     icon: FileQuestion,
+    roles: ["super_admin", "business", "individual"],
   },
   {
     title: "Billing",
     url: "/billing",
     icon: DollarSignIcon,
+    roles: ["super_admin", "business", "individual"],
   },
   {
     title: "Queries",
     url: "/queries",
     icon: MailQuestion,
+    roles: ["super_admin", "individual"],
   },
   // {
   //   title: "Calculator",
@@ -85,15 +93,19 @@ const mainMenuItems = [
     title: "Offset Projects",
     url: "/offset-projects",
     icon: Globe,
+    roles: ["super_admin", "business", "individual"],
   },
   {
     title: "Settings",
     url: "/settings",
     icon: Settings,
+    roles: ["super_admin", "business", "individual"],
   },
 ];
 
 export function AdminSidebar() {
+  const user = useAuthStore((s) => s.user);
+const role = user?.role;
   const location = useLocation();
   const [openItems, setOpenItems] = useState<string[]>([]);
 
@@ -108,6 +120,10 @@ export function AdminSidebar() {
   const isActive = (url: string) => {
     return location.pathname === url || location.pathname.startsWith(url + "/");
   };
+
+  const filteredMenuItems = mainMenuItems.filter(item =>
+  !item.roles || item.roles.includes(role)
+);
 
   return (
     <Sidebar className="border-r border-sidebar-border bg-sidebar">
@@ -138,7 +154,7 @@ export function AdminSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-2">
-              {mainMenuItems.map((item) => (
+              {filteredMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   {item.subItems ? (
                     <Collapsible
