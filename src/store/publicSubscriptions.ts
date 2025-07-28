@@ -42,7 +42,7 @@ function normalizePlan(plan: any): SubscriptionPlan {
   };
 }
 
-export const useSubscriptionStore = create<SubscriptionState>()(
+export const usePublicSubscriptionStore = create<SubscriptionState>()(
   persist(
     (set) => ({
       activePlans: [],
