@@ -10,8 +10,7 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  CreditCardIcon,
-  DollarSignIcon,
+  DollarSign as DollarSignIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -37,77 +36,110 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useAuthStore } from "@/store/auth";
 
-const mainMenuItems = [
+type MenuItemBase = {
+  title: string;
+  url: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  roles: string[];
+};
+
+type MenuItemWithSubItems = MenuItemBase & {
+  hasSubItems: true;
+  subItems?: Array<{ title: string; url: string }>;
+};
+
+type MenuItemWithoutSubItems = MenuItemBase & {
+  hasSubItems?: false;
+};
+
+type MenuItem = MenuItemWithSubItems | MenuItemWithoutSubItems;
+
+const baseMenuItems: MenuItem[] = [
   {
     title: "Dashboard",
     url: "/",
     icon: LayoutDashboard,
     roles: ["super_admin", "business", "individual"],
+    hasSubItems: false,
   },
   {
     title: "User Management",
     url: "/users",
     icon: Users,
-    roles: ["super_admin", "business"],
+    roles: ["super_admin"],
+    hasSubItems: false,
   },
   {
     title: "Blogs",
     url: "/blogs",
     icon: BookOpen,
-    roles: ["super_admin", "business", "individual"],
+    roles: ["super_admin"],
+    hasSubItems: false,
   },
   {
     title: "Subscriptions",
     url: "/subscriptions",
     icon: CreditCard,
-    subItems: [
-      { title: "All Plans", url: "/subscriptions" },
-      { title: "Pricing", url: "/subscriptions/pricing" },
-    ],
     roles: ["super_admin", "business", "individual"],
+    hasSubItems: true,
   },
   {
     title: "FAQ",
     url: "/faqs",
     icon: FileQuestion,
-    roles: ["super_admin", "business", "individual"],
+    roles: ["super_admin"],
+    hasSubItems: false,
   },
   {
     title: "Billing",
     url: "/billing",
     icon: DollarSignIcon,
-    roles: ["super_admin", "business", "individual"],
+    roles: ["super_admin", "business"],
+    hasSubItems: false,
   },
   {
     title: "Queries",
     url: "/queries",
     icon: MailQuestion,
-    roles: ["super_admin", "individual"],
+    roles: ["super_admin"],
+    hasSubItems: false,
   },
-  // {
-  //   title: "Calculator",
-  //   url: "/calculator",
-  //   icon: Calculator,
-  // },
   {
     title: "Offset Projects",
     url: "/offset-projects",
     icon: Globe,
-    roles: ["super_admin", "business", "individual"],
+    roles: ["super_admin"],
+    hasSubItems: false,
   },
   {
     title: "Settings",
     url: "/settings",
     icon: Settings,
     roles: ["super_admin", "business", "individual"],
+    hasSubItems: false,
   },
 ];
 
 export function AdminSidebar() {
   const user = useAuthStore((s) => s.user);
-const role = user?.role;
+  const role = user?.role;
   const location = useLocation();
   const [openItems, setOpenItems] = useState<string[]>([]);
+
+  // Function to get subscription sub-items based on role
+  const getSubscriptionItems = (role: string) => {
+    if (role === "business") {
+      return [
+        { title: "Pricing", url: "/subscriptions/pricing" },
+                { title: "My Plans", url: "/my-subscription" },
+
+      ];
+    }
+    return [
+      { title: "All Plans", url: "/subscriptions" },
+      { title: "Pricing", url: "/subscriptions/pricing" },
+    ];
+  };
 
   const toggleItem = (title: string) => {
     setOpenItems((prev) =>
@@ -121,9 +153,22 @@ const role = user?.role;
     return location.pathname === url || location.pathname.startsWith(url + "/");
   };
 
-  const filteredMenuItems = mainMenuItems.filter(item =>
-  !item.roles || item.roles.includes(role)
-);
+  // Process menu items with dynamic sub-items
+  const processedMenuItems = baseMenuItems.map((item) => {
+    if (item.title === "Subscriptions" && item.hasSubItems && role) {
+      return {
+        ...item,
+        hasSubItems: true, // keep discriminant
+        subItems: getSubscriptionItems(role),
+      };
+    }
+    return item;
+  });
+
+  // Filter items based on user role
+  const filteredMenuItems = processedMenuItems.filter(
+    (item) => !item.roles || item.roles.includes(role)
+  );
 
   return (
     <Sidebar className="border-r border-sidebar-border bg-sidebar">
@@ -156,7 +201,7 @@ const role = user?.role;
             <SidebarMenu className="space-y-2">
               {filteredMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  {item.subItems ? (
+                  {item.hasSubItems ? (
                     <Collapsible
                       open={openItems.includes(item.title)}
                       onOpenChange={() => toggleItem(item.title)}
@@ -182,7 +227,7 @@ const role = user?.role;
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <SidebarMenuSub className="ml-6 mt-2 space-y-1">
-                          {item.subItems.map((subItem) => (
+                          {(item.subItems ?? []).map((subItem) => (
                             <SidebarMenuSubItem key={subItem.title}>
                               <SidebarMenuSubButton asChild>
                                 <Link

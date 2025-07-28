@@ -47,12 +47,15 @@ import { recentSubscriptions } from "@/data/mockSubscribers";
 
 export default function Subscriptions() {
   const accessToken = useAuthStore((state) => state.accessToken);
+    const user = useAuthStore((state) => state.user);
+  const role = user?.role;
   const {
     activePlans,
     inactivePlans,
     loading,
     error,
     fetchPlans,
+    fetchPublicPlans,
     createPlan,
     updatePlan,
     deletePlan,
@@ -77,10 +80,12 @@ export default function Subscriptions() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (accessToken) {
+    if (role === "business") {
+      fetchPublicPlans();
+    } else if (accessToken) {
       fetchPlans(accessToken);
     }
-  }, [accessToken, fetchPlans]);
+  }, [role, accessToken, fetchPlans, fetchPublicPlans]);
 
   useEffect(() => {
     if (error) {
@@ -172,7 +177,7 @@ export default function Subscriptions() {
   };
 
   const openEditDialog = (plan: SubscriptionPlan) => {
-    setEditingPlan(JSON.parse(JSON.stringify(plan))); // Deep copy
+    setEditingPlan(JSON.parse(JSON.stringify(plan)));
     setIsEditDialogOpen(true);
   };
 
@@ -182,7 +187,7 @@ export default function Subscriptions() {
     0
   );
   const totalRevenue = allPlans.reduce(
-    (sum, plan) => sum + plan.monthly_price * 10, // Mock multiplier
+    (sum, plan) => sum + plan.monthly_price * 10,
     0
   );
 

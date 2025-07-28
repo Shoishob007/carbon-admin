@@ -24,6 +24,8 @@ interface SubscriptionState {
   loading: boolean;
   error: string | null;
   fetchPlans: (accessToken: string) => Promise<void>;
+    fetchPublicPlans: () => Promise<void>;
+
   createPlan: (
     accessToken: string,
     planData: Omit<SubscriptionPlan, "id" | "created_at" | "is_active">
@@ -82,6 +84,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           if (!response.ok) throw new Error("Failed to fetch plans");
 
           const data = await response.json();
+          // console.log("Plans i got :: ", data)
 
           const activePlans: SubscriptionPlan[] = Array.isArray(
             data.active_plans
@@ -102,6 +105,37 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           set({
             error:
               error instanceof Error ? error.message : "Failed to fetch plans",
+          });
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      fetchPublicPlans: async () => {
+        set({ loading: true, error: null });
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/subscription/plans/`,
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (!response.ok) throw new Error("Failed to fetch public plans");
+
+          const data = await response.json();
+          console.log("Public plans data:", data);
+          const plans: SubscriptionPlan[] = Array.isArray(data)
+            ? data.map(normalizePlan)
+            : [];
+
+          set({ activePlans: plans, inactivePlans: [] });
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : "Failed to fetch public plans",
           });
         } finally {
           set({ loading: false });
