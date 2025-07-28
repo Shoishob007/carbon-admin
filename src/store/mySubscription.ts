@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from "zustand";
 
 export interface UpdateSubscriptionPayload {
@@ -52,7 +53,7 @@ interface MySubscriptionState {
     accessToken: string,
     subscriptionData: {
       plan_id: number;
-      payment_frequency: "monthly" | "yearly";
+      payment_frequency: any;
     }
   ) => Promise<MySubscription>;
 }

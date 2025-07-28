@@ -17,12 +17,13 @@ import { Link } from "react-router-dom";
 import {
   Loader2,
   CheckCircle,
-  XCircle,
   Zap,
   Users,
   FileText,
   Database,
-  ArrowUpRight,
+  Crown,
+  Calendar,
+  CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -36,11 +37,11 @@ import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectValue,
   SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 export default function MySubscription() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -50,46 +51,71 @@ export default function MySubscription() {
     error,
     fetchMySubscription,
     updateMySubscription,
+    createSubscription,
   } = useMySubscriptionStore();
   const { activePlans, fetchPublicPlans } = usePublicSubscriptionStore();
   const [billing, setBilling] = useState("monthly");
-  const [selectedPlan, setSelectedPlan] = useState<
-    (typeof activePlans)[0] | null
-  >(null);
+  const [selectedPlan, setSelectedPlan] = useState<(typeof activePlans)[0] | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [hasNoSubscription, setHasNoSubscription] = useState(false);
 
   useEffect(() => {
     if (accessToken) {
-      fetchMySubscription(accessToken);
       fetchPublicPlans();
+      fetchMySubscription(accessToken)
+        .then(() => setHasNoSubscription(false))
+        .catch((error) => {
+          if (error?.message === "No subscription found") {
+            setHasNoSubscription(true);
+          }
+        });
     }
   }, [accessToken, fetchMySubscription, fetchPublicPlans]);
 
   useEffect(() => {
-    if (error) toast.error(error);
+    if (error && error !== "No subscription found") {
+      toast.error(error);
+    }
   }, [error]);
 
+  // Set initial billing frequency when dialog opens
   useEffect(() => {
-    if (subscription) {
+    if (isDialogOpen && subscription) {
       setBilling(subscription.payment_frequency);
     }
-  }, [subscription]);
+  }, [isDialogOpen, subscription]);
 
-  const handlePlanUpdate = async (planId: number) => {
-    if (!accessToken || !subscription) return;
+  const handleSubscriptionAction = async (planId: number) => {
+    if (!accessToken) {
+      toast.error("You must be logged in to subscribe.");
+      return;
+    }
 
     try {
       setIsUpdating(true);
-      await updateMySubscription(accessToken, {
-        plan_id: planId,
-        payment_frequency: billing,
-      });
-      toast.success("Subscription updated successfully");
+      
+      if (hasNoSubscription) {
+        // Create new subscription
+        await createSubscription(accessToken, {
+          plan_id: planId,
+          payment_frequency: billing,
+        });
+        toast.success("Subscription created successfully!");
+        setHasNoSubscription(false);
+      } else if (subscription) {
+        // Update existing subscription
+        await updateMySubscription(accessToken, {
+          plan_id: planId,
+          payment_frequency: billing,
+        });
+        toast.success("Subscription updated successfully!");
+      }
+      
       await fetchMySubscription(accessToken);
       setIsDialogOpen(false);
     } catch (error) {
-      toast.error("Failed to update subscription");
+      toast.error(error instanceof Error ? error.message : "Failed to process subscription");
     } finally {
       setIsUpdating(false);
     }
@@ -97,353 +123,480 @@ export default function MySubscription() {
 
   const openPlanDialog = (plan: (typeof activePlans)[0]) => {
     setSelectedPlan(plan);
+    // Set billing frequency to current subscription frequency if changing plans
+    if (subscription) {
+      setBilling(subscription.payment_frequency);
+    }
     setIsDialogOpen(true);
   };
+
+  // Check if user is changing frequency or plan
+  const isFrequencyChange = selectedPlan && subscription && 
+    selectedPlan.id === subscription.plan && 
+    billing !== subscription.payment_frequency;
+
+  const isPlanChange = selectedPlan && subscription && 
+    selectedPlan.id !== subscription.plan;
+
+  const shouldEnableButton = hasNoSubscription || isFrequencyChange || isPlanChange;
 
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Loader2 className="animate-spin w-8 h-8 text-muted-foreground" />
+        <Loader2 className="animate-spin w-6 h-6 text-muted-foreground" />
       </div>
     );
   }
 
-  if (!subscription) {
-    return (
-      <div className="text-center py-12 h-full">
-        <h1 className="text-2xl font-bold mb-2">No Active Subscription</h1>
-        <p className="text-muted-foreground mb-6">
-          You don't have an active subscription plan
-        </p>
-        <Link to="/subscriptions/pricing">
-        <Button>Browse Plans</Button></Link>
-      </div>
-    );
-  }
+  // Default values when no subscription exists
+  const plan_details = subscription?.plan_details || {
+    name: "No Active Plan",
+    description: "You don't have an active subscription",
+    monthly_price: 0,
+    yearly_price: 0,
+    max_users: 0,
+    max_guides: 0,
+    max_tokens: 0,
+    total_requests_limit: 0,
+    features: ["Subscribe to unlock all features"],
+  };
 
-  const { plan_details, status, start_date, end_date, payment_frequency } =
-    subscription;
-  const currentPrice =
-    payment_frequency === "monthly"
-      ? plan_details.monthly_price
-      : plan_details.yearly_price;
+  const currentPrice = billing === "monthly" 
+    ? plan_details.monthly_price 
+    : plan_details.yearly_price;
 
   const stats = [
     {
-      title: "Users Limit",
-      value: plan_details.max_users,
+      title: "Team Members",
+      value: plan_details.max_users || 0,
       icon: Users,
-      description: "Maximum team members",
+      description: "Maximum users allowed",
+      color: "text-blue-600",
+      bgColor: "bg-blue-50",
     },
     {
-      title: "Guides Limit",
-      value: plan_details.max_guides,
+      title: "Content Guides",
+      value: plan_details.max_guides || 0,
       icon: FileText,
-      description: "Maximum guides you can create",
+      description: "Guides you can create",
+      color: "text-green-600",
+      bgColor: "bg-green-50",
     },
     {
-      title: "Tokens",
-      value: plan_details.max_tokens,
+      title: "AI Tokens",
+      value: (plan_details.max_tokens || 0).toLocaleString(),
       icon: Database,
-      description: "Available tokens for AI",
+      description: "Monthly token allocation",
+      color: "text-purple-600",
+      bgColor: "bg-purple-50",
     },
     {
-      title: "Requests",
-      value: plan_details.total_requests_limit || "Unlimited",
+      title: "API Requests",
+      value: (plan_details.total_requests_limit || 0).toLocaleString(),
       icon: Zap,
-      description: "API requests per month",
+      description: "Monthly request limit",
+      color: "text-orange-600",
+      bgColor: "bg-orange-50",
     },
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold">My Subscription</h1>
-        <p className="text-muted-foreground">
-          Manage your current plan and explore upgrade options
-        </p>
+    <div className="max-w-7xl mx-auto space-y-8 px-4 py-6">
+      {/* Header Section */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Crown className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Subscription Management</h1>
+            <p className="text-sm text-muted-foreground">
+              {hasNoSubscription 
+                ? "Choose a plan that fits your needs" 
+                : "Manage your subscription and explore upgrade options"}
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                {stat.title}
-              </CardTitle>
-              <stat.icon className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stat.description}
-              </p>
+          <Card key={i} className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    {stat.title}
+                  </p>
+                  <p className={cn(
+                    "text-lg font-semibold",
+                    hasNoSubscription ? "text-muted-foreground" : "text-foreground"
+                  )}>
+                    {stat.value}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {stat.description}
+                  </p>
+                </div>
+                <div className={cn(
+                  "p-2.5 rounded-lg",
+                  hasNoSubscription ? "bg-muted" : stat.bgColor
+                )}>
+                  <stat.icon className={cn(
+                    "h-4 w-4",
+                    hasNoSubscription ? "text-muted-foreground" : stat.color
+                  )} />
+                </div>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Current Plan Card */}
-<Card className="border-primary/30 bg-gradient-to-br from-white to-primary/5 shadow-sm">
-  <CardHeader className="pb-3">
-    <div className="flex justify-between items-start">
-      <div>
-        <CardTitle className="flex items-center gap-3">
-          <div className="w-3 h-3 rounded-full bg-primary mt-1 flex-shrink-0"></div>
-          <span className="text-2xl font-bold tracking-tight text-foreground">
-            {plan_details.name}
-          </span>
-          <Badge
-            variant={status === "active" ? "default" : "destructive"}
-            className={cn(
-              "capitalize text-xs py-1 px-2.5",
-              status === "active" 
-                ? "bg-green-100 text-green-800 hover:bg-green-100" 
-                : "bg-red-100 text-red-800 hover:bg-red-100"
-            )}
-          >
-            {status}
-          </Badge>
-        </CardTitle>
-        <CardDescription className="mt-2 text-muted-foreground/80">
-          {plan_details.description}
-        </CardDescription>
-      </div>
-      <div className="text-right bg-primary/5 rounded-lg px-3 py-2 border border-primary/10">
-        <div className="text-2xl font-bold text-primary">
-          ${currentPrice.toFixed(2)}
-        </div>
-        <div className="text-xs text-muted-foreground/80 tracking-tight">
-          per {payment_frequency === "monthly" ? "month" : "year"}
-        </div>
-      </div>
-    </div>
-  </CardHeader>
-  
-  <CardContent className="pt-0">
-    <div className="grid gap-6 md:grid-cols-3">
-      {/* Plan Features */}
-      <div className="space-y-4 md:col-span-2">
-        <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground/80">
-          <span className="w-2 h-2 rounded-full bg-primary"></span>
-          Plan Features
-        </h3>
-        <ul className="grid gap-3 md:grid-cols-2">
-          {plan_details.features.map((feature, i) => (
-            <li 
-              key={i} 
-              className="flex items-start gap-3 p-2 hover:bg-muted/30 rounded-lg transition-colors"
-            >
-              <CheckCircle className="h-5 w-5 mt-0.5 text-primary flex-shrink-0" />
-              <span className="text-sm">{feature}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Subscription Details */}
-      <div className="space-y-4">
-        <h3 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wider text-muted-foreground/80">
-          <span className="w-2 h-2 rounded-full bg-primary"></span>
-          Subscription Details
-        </h3>
-        <div className="space-y-3">
-          <div className="flex justify-between items-center p-2 hover:bg-muted/30 rounded-lg transition-colors">
-            <span className="text-sm text-muted-foreground">Billing Cycle</span>
-            <span className="text-sm font-medium capitalize bg-primary/5 px-2 py-1 rounded-md">
-              {payment_frequency}
-            </span>
-          </div>
-          <div className="flex justify-between items-center p-2 hover:bg-muted/30 rounded-lg transition-colors">
-            <span className="text-sm text-muted-foreground">Start Date</span>
-            <span className="text-sm font-medium">
-              {new Date(start_date).toLocaleDateString()}
-            </span>
-          </div>
-          <div className="flex justify-between items-center p-2 hover:bg-muted/30 rounded-lg transition-colors">
-            <span className="text-sm text-muted-foreground">Renewal Date</span>
-            <span className="text-sm font-medium">
-              {end_date ? new Date(end_date).toLocaleDateString() : "N/A"}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </CardContent>
-</Card>
-
-      {/* Available Plans */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Available Plans</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {activePlans.map((plan) => (
-            <Card
-              key={plan.id}
-              className={cn(
-                "transition-all hover:shadow-md cursor-pointer",
-                plan.id === subscription.plan && "border-primary"
-              )}
-              onClick={() => openPlanDialog(plan)}
-            >
-              <CardHeader>
-                <CardTitle className="flex justify-between items-center">
-                  {plan.name}
-                  {plan.id === subscription.plan && (
-                    <Badge variant="secondary">Current Plan</Badge>
-                  )}
+      {/* Current Subscription Card */}
+      <Card className={cn(
+        "border-0 shadow-sm bg-gradient-to-br from-white via-white to-primary/[0.02]",
+        !hasNoSubscription && "ring-1 ring-primary/10"
+      )}>
+        <CardHeader className="pb-4">
+          <div className="flex justify-between items-start">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  hasNoSubscription ? "bg-muted-foreground" : "bg-green-500"
+                )} />
+                <CardTitle className="text-2xl font-semibold text-foreground">
+                  {plan_details.name}
                 </CardTitle>
-                <CardDescription>{plan.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-end gap-1 mb-2">
-                  <span className="text-2xl font-bold">
-                    $
-                    {billing === "monthly"
-                      ? plan.monthly_price.toFixed(2)
-                      : (plan.yearly_price * 0.9).toFixed(2)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    /{billing === "monthly" ? "month" : "year"}
-                  </span>
+                {!hasNoSubscription && (
+                  <Badge
+                    variant="secondary"
+                    className="capitalize text-xs bg-green-100 text-green-700 border-green-200"
+                  >
+                    {subscription?.status || "inactive"}
+                  </Badge>
+                )}
+              </div>
+              <CardDescription className="text-sm text-muted-foreground max-w-2xl">
+                {plan_details.description}
+              </CardDescription>
+            </div>
+            {!hasNoSubscription && (
+              <div className="text-right bg-primary/5 rounded-lg px-4 py-3 border border-primary/10">
+                <div className="text-xl font-bold text-primary">
+                  ${currentPrice.toFixed(2)}
                 </div>
-                <Button
-                  variant={
-                    plan.id === subscription.plan ? "outline" : "default"
-                  }
-                  className="w-full"
-                  disabled={plan.id === subscription.plan}
-                >
-                  {plan.id === subscription.plan
-                    ? "Current Plan"
-                    : "View Details"}
+                <div className="text-xs text-muted-foreground">
+                  per {billing === "monthly" ? "month" : "year"}
+                </div>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        
+        <CardContent className="pt-0">
+          {hasNoSubscription ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <div className="p-4 bg-muted/50 rounded-full">
+                <CreditCard className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div className="text-center space-y-2">
+                <h3 className="font-medium">No Active Subscription</h3>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Get started with one of our subscription plans to unlock all features and capabilities
+                </p>
+              </div>
+              <Link to="/subscriptions/pricing">
+                <Button className="mt-2">
+                  <Crown className="h-4 w-4 mr-2" />
+                  Browse Plans
                 </Button>
-              </CardContent>
-            </Card>
-          ))}
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-3">
+                {/* Plan Features */}
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                      Plan Features
+                    </h3>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {plan_details.features.map((feature, i) => (
+                      <div 
+                        key={i} 
+                        className="flex items-start gap-3 px-2 py-1.5 hover:bg-muted/30 rounded-lg transition-colors"
+                      >
+                        <CheckCircle className="h-4 w-4 mt-0.5 text-green-500 flex-shrink-0" />
+                        <span className="text-sm text-foreground">{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Subscription Details */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                      Billing Details
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Billing Cycle</span>
+                      </div>
+                      <Badge variant="outline" className="capitalize">
+                        {subscription?.payment_frequency}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center p-3 hover:bg-muted/30 rounded-lg transition-colors">
+                      <span className="text-sm text-muted-foreground">Started</span>
+                      <span className="text-sm font-medium">
+                        {subscription?.start_date ? new Date(subscription.start_date).toLocaleDateString() : "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 hover:bg-muted/30 rounded-lg transition-colors">
+                      <span className="text-sm text-muted-foreground">Next Billing</span>
+                      <span className="text-sm font-medium">
+                        {subscription?.end_date ? new Date(subscription.end_date).toLocaleDateString() : "N/A"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Available Plans Section */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Available Plans</h2>
+            <p className="text-sm text-muted-foreground">
+              {hasNoSubscription ? "Choose the perfect plan for your needs" : "Upgrade or change your current plan"}
+            </p>
+          </div>
+        </div>
+        
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {activePlans.map((plan) => {
+            const isCurrentPlan = !hasNoSubscription && plan.id === subscription?.plan;
+            return (
+              <Card
+                key={plan.id}
+                className={cn(
+                  "relative transition-all hover:shadow-md cursor-pointer shadow-sm",
+                  isCurrentPlan && "ring-2 ring-primary/20 bg-primary/[0.02]"
+                )}
+                onClick={() => openPlanDialog(plan)}
+              >
+                {isCurrentPlan && (
+                  <div className="absolute -top-2 left-4">
+                    <Badge className="bg-primary text-primary-foreground text-xs">
+                      Current Plan
+                    </Badge>
+                  </div>
+                )}
+                <CardHeader className="pb-3">
+                  <div className="space-y-2">
+                    <CardTitle className="text-2xl font-semibold">
+                      {plan.name}
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                      {plan.description}
+                    </CardDescription>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-1">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold">
+                        ${billing === "monthly" 
+                          ? plan.monthly_price.toFixed(2) 
+                          : (plan.yearly_price * 0.9).toFixed(2)}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        /{billing === "monthly" ? "mo" : "yr"}
+                      </span>
+                    </div>
+                    {billing === "yearly" && (
+                      <p className="text-xs text-green-600">Save 10% with yearly billing</p>
+                    )}
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Users</p>
+                      <p className="font-medium">{plan.max_users}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Guides</p>
+                      <p className="font-medium">{plan.max_guides}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Tokens</p>
+                      <p className="font-medium">{plan.max_tokens.toLocaleString()}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-muted-foreground">Requests</p>
+                      <p className="font-medium">{plan.total_requests_limit?.toLocaleString() || "∞"}</p>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    variant={isCurrentPlan ? "outline" : "default"}
+                    size="sm"
+                    className="w-full"
+                  >
+                    {isCurrentPlan ? "Manage Plan" : "View Details"}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
       {/* Plan Details Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto p-6">
           {selectedPlan && (
             <>
-              <DialogHeader>
-                <DialogTitle>{selectedPlan.name}</DialogTitle>
-                <DialogDescription>
+              <DialogHeader className="space-y-3">
+                <DialogTitle className="text-2xl font-semibold">
+                  {selectedPlan.name}
+                </DialogTitle>
+                <DialogDescription className="text-sm">
                   {selectedPlan.description}
                 </DialogDescription>
               </DialogHeader>
+              
               <div className="space-y-6">
-                {/* Pricing */}
-                <div className="bg-muted/50 p-4 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h4 className="font-medium">Billing Cycle</h4>
+                {/* Pricing Section */}
+                <div className="bg-muted/30 p-4 rounded-lg space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium">Billing Frequency</h4>
                       <Select
                         value={billing}
-                        onValueChange={(value) =>
-                          setBilling(value as "monthly" | "yearly")
-                        }
+                        onValueChange={(value) => setBilling(value as "monthly" | "yearly")}
                       >
-                        <SelectTrigger className="w-[180px] mt-2">
-                          <SelectValue placeholder="Select billing" />
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select billing cycle" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="monthly">Monthly</SelectItem>
-                          <SelectItem value="yearly">
-                            Yearly (10% off)
-                          </SelectItem>
+                          <SelectItem value="yearly">Yearly (Save 10%)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold">
-                        $
-                        {billing === "monthly"
-                          ? selectedPlan.monthly_price.toFixed(2)
+                    <div className="text-right space-y-1">
+                      <div className="text-2xl font-bold">
+                        ${billing === "monthly" 
+                          ? selectedPlan.monthly_price.toFixed(2) 
                           : (selectedPlan.yearly_price * 0.9).toFixed(2)}
                       </div>
                       <div className="text-sm text-muted-foreground">
                         per {billing === "monthly" ? "month" : "year"}
                       </div>
+                      {billing === "yearly" && (
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">
+                          Original Price ${(selectedPlan.yearly_price * 0.1 * 10).toFixed(0)}/year
+                        </Badge>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Features */}
-                <div>
-                  <h4 className="font-medium mb-3">Features</h4>
-                  <ul className="space-y-3">
+                {/* Features Grid */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    Plan Features
+                  </h4>
+                  <div className="grid gap-2 max-h-32 overflow-y-auto">
                     {selectedPlan.features.map((feature, i) => (
-                      <li key={i} className="flex items-start gap-3">
-                        <CheckCircle className="h-5 w-5 mt-0.5 text-green-500 flex-shrink-0" />
-                        <span>{feature}</span>
-                      </li>
+                      <div key={i} className="flex items-start gap-3 px-2 py-1.5 hover:bg-muted/30 rounded-lg transition-colors">
+                        <CheckCircle className="h-4 w-4 mt-0.5 text-green-500 flex-shrink-0" />
+                        <span className="text-sm">{feature}</span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
 
-                {/* Limits */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="border rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Max Users</span>
-                    </div>
-                    <div className="text-xl font-bold">
-                      {selectedPlan.max_users}
-                    </div>
-                  </div>
-                  <div className="border rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Max Guides</span>
-                    </div>
-                    <div className="text-xl font-bold">
-                      {selectedPlan.max_guides}
-                    </div>
-                  </div>
-                  <div className="border rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Database className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Max Tokens</span>
-                    </div>
-                    <div className="text-xl font-bold">
-                      {selectedPlan.max_tokens}
-                    </div>
-                  </div>
-                  <div className="border rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Zap className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Requests</span>
-                    </div>
-                    <div className="text-xl font-bold">
-                      {selectedPlan.total_requests_limit || "Unlimited"}
-                    </div>
+                {/* Resource Limits */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium flex items-center gap-2">
+                    <div className="w-1 h-4 bg-primary rounded-full"></div>
+                    Resource Limits
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { icon: Users, label: "Max Users", value: selectedPlan.max_users },
+                      { icon: FileText, label: "Max Guides", value: selectedPlan.max_guides },
+                      { icon: Database, label: "Max Tokens", value: selectedPlan.max_tokens.toLocaleString() },
+                      { icon: Zap, label: "API Requests", value: selectedPlan.total_requests_limit?.toLocaleString() || "Unlimited" },
+                    ].map((item, i) => (
+                      <div key={i} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <item.icon className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
+                        </div>
+                        <div className="text-lg font-semibold">
+                          {item.value}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 {/* Action Button */}
-                <Button
-                  onClick={() => handlePlanUpdate(selectedPlan.id)}
-                  disabled={selectedPlan.id === subscription.plan || isUpdating}
-                  className="w-full mt-4"
-                  size="lg"
-                >
-                  {isUpdating ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : selectedPlan.id === subscription.plan ? (
-                    "Current Plan"
-                  ) : selectedPlan.monthly_price >
-                    plan_details.monthly_price ? (
-                    "Upgrade Plan"
-                  ) : (
-                    "Change Plan"
-                  )}
-                </Button>
+                <div className="pt-2">
+                  <Button
+                    onClick={() => handleSubscriptionAction(selectedPlan.id)}
+                    disabled={!shouldEnableButton || isUpdating}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Processing...
+                      </>
+                    ) : hasNoSubscription ? (
+                      <>
+                        <Crown className="h-4 w-4 mr-2" />
+                        Subscribe Now
+                      </>
+                    ) : isFrequencyChange ? (
+                      <>
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Update Billing Frequency
+                      </>
+                    ) : selectedPlan.id === subscription?.plan ? (
+                      "Current Plan"
+                    ) : selectedPlan.monthly_price > (subscription?.plan_details.monthly_price || 0) ? (
+                      <>
+                        <Crown className="h-4 w-4 mr-2" />
+                        Upgrade Plan
+                      </>
+                    ) : (
+                      "Change Plan"
+                    )}
+                  </Button>
+                </div>
               </div>
             </>
           )}
