@@ -12,8 +12,9 @@ import Queries from "./pages/Queries";
 import OffsetProjects from "./pages/Offset-Projects";
 import { Login } from "./pages/Login";
 import Register from "./pages/Register";
-import MySubscription from "./pages/MySubscriptions";
+import MySubscription from "./pages/mySubscriptions";
 import Pricing from "./pages/Pricing";
+import SettingsPage from "./app/(dashboard)/settings/page";
 
 // route objects
 export interface AppRoute {
@@ -73,7 +74,7 @@ export const routes: AppRoute[] = [
   },
   {
     path: "/settings",
-    component: Settings,
+    component: SettingsPage,
     layout: "dashboard",
     roles: ["super_admin", "business", "individual"],
   },

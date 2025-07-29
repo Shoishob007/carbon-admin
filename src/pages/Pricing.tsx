@@ -29,6 +29,9 @@ export default function Pricing() {
   } = useMySubscriptionStore();
 
   const accessToken = useAuthStore((state) => state.accessToken);
+    const user = useAuthStore((state) => state.user);
+    console.log("User i got :: ", user)
+
 
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null);

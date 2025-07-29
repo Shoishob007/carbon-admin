@@ -126,13 +126,12 @@ export function AdminSidebar() {
   const location = useLocation();
   const [openItems, setOpenItems] = useState<string[]>([]);
 
-  // Function to get subscription sub-items based on role
+  // subscription sub-items based on role
   const getSubscriptionItems = (role: string) => {
     if (role === "business") {
       return [
         { title: "Pricing", url: "/subscriptions/pricing" },
-                { title: "My Plans", url: "/my-subscription" },
-
+        { title: "My Plans", url: "/my-subscription" },
       ];
     }
     return [
