@@ -34,6 +34,7 @@ interface User {
   is_active: boolean;
   profile: Profile;
   business_profile: BusinessProfile | null;
+  profile_update : boolean
 }
 
 interface UserState {
@@ -113,43 +114,46 @@ export const useUserStore = create<UserState>()(
       }
     },
 
-    updateBusinessProfile: async (accessToken, data) => {
-      set({ loading: true, error: null });
-      try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile/`, {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        });
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.message || 'Failed to update business profile');
+updateBusinessProfile: async (accessToken, data) => {
+  set({ loading: true, error: null });
+  try {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile/`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        business_profile: data
+      }),
+    });
+    
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.message || 'Failed to update business profile');
+    }
+    
+    const responseData = await res.json();
+    set((state) => ({
+      user: {
+        ...state.user,
+        business_profile: {
+          ...state.user?.business_profile,
+          ...responseData.business_profile
         }
-        const responseData = await res.json();
-        set((state) => {
-          if (state.user) {
-            state.user.business_profile = {
-              ...state.user.business_profile,
-              ...responseData,
-            };
-          }
-        });
-      } catch (error: any) {
-        set({
-          error:
-            typeof error === 'string'
-              ? error
-              : error?.message || 'Failed to update business profile',
-          loading: false,
-        });
-        throw error;
-      } finally {
-        set({ loading: false });
       }
-    },
+    }));
+    return responseData;
+  } catch (error: any) {
+    set({
+      error: typeof error === 'string' ? error : error?.message || 'Failed to update business profile',
+      loading: false,
+    });
+    throw error;
+  } finally {
+    set({ loading: false });
+  }
+},
 
     regenerateApiKey: async (accessToken) => {
       set({ loading: true, error: null });

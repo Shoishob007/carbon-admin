@@ -4,18 +4,48 @@ import { useEffect, useState } from "react";
 import { usePublicSubscriptionStore } from "@/store/publicSubscriptions";
 import { useMySubscriptionStore } from "@/store/mySubscription";
 import { useAuthStore } from "@/store/auth";
+import { useUserProfile } from "@/hooks/use-profile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle, Crown, Zap, Star } from "lucide-react";
+import { Loader2, CheckCircle, Crown, Zap, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
-// Enhanced plan icons with better visual appeal
+// Plan icons
 const planIcons = [
   <Star key="basic" className="w-10 h-10 text-blue-500" />,
   <Crown key="popular" className="w-10 h-10 text-amber-500" />,
   <Zap key="premium" className="w-10 h-10 text-purple-500" />,
 ];
+
+function ProfileCompletePopup() {
+const navigate = useNavigate();
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+        <div className="text-center space-y-4">
+          <h3 className="text-xl font-bold text-slate-900">
+            Complete Your Profile
+          </h3>
+          <p className="text-slate-600">
+            Please complete your profile information in the settings to access
+            this section.
+          </p>
+          <div className="pt-4">
+            <Button
+              onClick={() => navigate("/settings")}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              Go to Settings
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Pricing() {
   const { activePlans, loading, error, fetchPublicPlans } =
@@ -26,18 +56,23 @@ export default function Pricing() {
     fetchMySubscription,
     updateMySubscription,
     createSubscription,
+    unsubscribeFromPlan,
   } = useMySubscriptionStore();
 
   const accessToken = useAuthStore((state) => state.accessToken);
-    const user = useAuthStore((state) => state.user);
-    console.log("User i got :: ", user)
+  const { profile_update, loading: profileLoading, error: profileError } = useUserProfile();
 
-
+  // console.log("Profile Update :: ", profile_update)
+  
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null);
   const [hasNoSubscription, setHasNoSubscription] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
+    if (!profile_update && !profileLoading) {
+      return;
+    }
+    
     fetchPublicPlans();
     if (accessToken) {
       fetchMySubscription(accessToken).catch((error) => {
@@ -49,7 +84,7 @@ export default function Pricing() {
         }
       });
     }
-  }, [fetchPublicPlans, fetchMySubscription, accessToken]);
+  }, [fetchPublicPlans, fetchMySubscription, accessToken, profile_update, profileLoading]);
 
   const currentPlanId = subscription?.plan_details.id ?? null;
   const currentPlanPrice = subscription
@@ -80,6 +115,7 @@ export default function Pricing() {
       await fetchMySubscription(accessToken);
     } catch (error) {
       console.error("Subscription creation failed:", error);
+      toast.error("Failed to create subscription");
     } finally {
       setUpdatingPlanId(null);
     }
@@ -109,10 +145,55 @@ export default function Pricing() {
       await fetchMySubscription(accessToken);
     } catch (error) {
       console.error("Plan change failed:", error);
+      toast.error("Failed to change plan");
     } finally {
       setUpdatingPlanId(null);
     }
   };
+
+const handleUnsubscribe = async () => {
+  if (!accessToken) {
+    toast.error("You must be logged in to unsubscribe.");
+    return;
+  }
+  if (!subscription) {
+    toast.error("No active subscription found.");
+    return;
+  }
+
+  try {
+    setUpdatingPlanId(currentPlanId);
+    await unsubscribeFromPlan(accessToken);
+    toast.success("Successfully unsubscribed");
+    setHasNoSubscription(true);
+  } catch (error) {
+    console.error("Unsubscribe failed:", error);
+    toast.error(error instanceof Error ? error.message : "Failed to unsubscribe");
+  } finally {
+    setUpdatingPlanId(null);
+  }
+};
+
+  if (!profile_update) {
+    return <ProfileCompletePopup />;
+  }
+
+  if (profileError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+        <div className="container mx-auto py-16">
+          <div className="text-center">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-md mx-auto">
+              <div className="text-red-600 font-semibold text-lg mb-2">
+                Profile Error
+              </div>
+              <div className="text-red-500">{profileError}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -121,7 +202,9 @@ export default function Pricing() {
           <div className="flex justify-center items-center h-64">
             <div className="text-center space-y-4">
               <Loader2 className="animate-spin w-12 h-12 text-blue-600 mx-auto" />
-              <p className="text-muted-foreground font-medium">Loading pricing plans...</p>
+              <p className="text-muted-foreground font-medium">
+                Loading pricing plans...
+              </p>
             </div>
           </div>
         </div>
@@ -135,7 +218,9 @@ export default function Pricing() {
         <div className="container mx-auto py-16">
           <div className="text-center">
             <div className="bg-red-50 border border-red-200 rounded-xl p-8 max-w-md mx-auto">
-              <div className="text-red-600 font-semibold text-lg mb-2">Unable to Load Plans</div>
+              <div className="text-red-600 font-semibold text-lg mb-2">
+                Unable to Load Plans
+              </div>
               <div className="text-red-500">{error}</div>
             </div>
           </div>
@@ -153,7 +238,8 @@ export default function Pricing() {
             Simple, Transparent Pricing
           </h1>
           <p className="text-lg text-muted-foreground max-w-4xl mx-auto leading-relaxed">
-            Scale your business with confidence. Choose the plan that fits your needs and upgrade anytime.
+            Scale your business with confidence. Choose the plan that fits your
+            needs and upgrade anytime.
           </p>
         </div>
 
@@ -209,7 +295,7 @@ export default function Pricing() {
             const isCurrentPlan = plan.id === currentPlanId;
             const isUpdating = updatingPlanId === plan.id;
 
-            // Enhanced button logic with better styling
+            // Button logic
             let actionButton = null;
 
             if (hasNoSubscription || !subscription) {
@@ -236,13 +322,23 @@ export default function Pricing() {
               );
             } else if (isCurrentPlan) {
               actionButton = (
-                <Button
-                  disabled
-                  className="w-full h-12 font-semibold text-base rounded-xl bg-green-100 text-green-700 border-2 border-green-200 cursor-not-allowed"
-                >
-                  <CheckCircle className="w-5 h-5 mr-2" />
-                  Current Plan
-                </Button>
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full h-12 font-semibold text-base rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                    onClick={handleUnsubscribe}
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        Processing...
+                      </>
+                    ) : (
+                      "Unsubscribe"
+                    )}
+                  </Button>
+                </div>
               );
             } else {
               if (planPriceNumeric > currentPlanPrice) {
@@ -320,8 +416,7 @@ export default function Pricing() {
                 {isPopular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
                     <Badge className="bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold px-6 py-2 rounded-full shadow-lg text-sm tracking-wide">
-                      <Crown className="w-4 h-4 mr-1" />
-                      MOST POPULAR
+                      POPULAR
                     </Badge>
                   </div>
                 )}
@@ -329,7 +424,7 @@ export default function Pricing() {
                 {/* Current Plan Badge */}
                 {isCurrentPlan && (
                   <div className="absolute top-6 right-6">
-                    <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-sm">
+                    <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-xs">
                       <CheckCircle className="w-4 h-4 mr-1" />
                       ACTIVE
                     </Badge>
@@ -342,7 +437,9 @@ export default function Pricing() {
                     <div className="inline-flex items-center justify-center w-10 h-10 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-300">
                       {planIcons[idx % planIcons.length]}
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">{plan.name}</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                      {plan.name}
+                    </h2>
                     <p className="text-slate-600 leading-relaxed min-h-[3rem] flex items-center justify-center">
                       {plan.description}
                     </p>
@@ -366,9 +463,7 @@ export default function Pricing() {
                   </div>
 
                   {/* Action Button */}
-                  <div className="mb-8">
-                    {actionButton}
-                  </div>
+                  <div className="mb-8">{actionButton}</div>
 
                   {/* Features */}
                   <div>
@@ -382,16 +477,14 @@ export default function Pricing() {
                           className="flex items-start gap-3 text-slate-700 group/item"
                         >
                           <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0 group-hover/item:scale-110 transition-transform duration-200" />
-                          <span className="text-sm leading-relaxed">{feature}</span>
+                          <span className="text-sm leading-relaxed">
+                            {feature}
+                          </span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 </div>
-
-                {/* Decorative Elements */}
-                {/* <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-transparent via-transparent to-slate-50 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-transparent via-transparent to-blue-50 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" /> */}
               </div>
             );
           })}

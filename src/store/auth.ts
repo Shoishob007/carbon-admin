@@ -21,6 +21,7 @@ interface AuthState {
   user: UserProfile | null;
   accessToken: string | null;
   refreshToken: string | null;
+  profile_update : boolean,
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
@@ -35,6 +36,7 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
+      profile_update: false,
       login: async (email: string, password: string) => {
         try {
           const resp = await fetch(
@@ -56,6 +58,7 @@ export const useAuthStore = create<AuthState>()(
               email: data.user.email,
               name: data.user.name,
               role: data.user.role,
+              profile_update : data.user.profile_update,
               id:
                 data.user.id ?? data.user.user_id ?? data.user.profile?.id ?? 0,
               profile_image: data.user.profile_image,
@@ -68,6 +71,7 @@ export const useAuthStore = create<AuthState>()(
         } catch (err) {
           set({
             user: null,
+            profile_update: false,
             accessToken: null,
             refreshToken: null,
             isAuthenticated: false,
