@@ -1,4 +1,7 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -6,22 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  BookOpen,
-  Edit,
-  Trash2,
-  Plus,
-  Eye,
-  Calendar,
-  User,
-  Search,
-  Filter,
-  ArrowUpDown,
-} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -46,102 +33,243 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Plus,
+  Search,
+  Filter,
+  ArrowUpDown,
+  Edit,
+  Trash2,
+  ExternalLink,
+  BookOpen,
+  Calendar,
+  Eye,
+  Loader2,
+} from "lucide-react";
+import { useBlogStore, CreateBlogPost, BlogPost } from "@/store/blogStore";
+import { useAuthStore } from "@/store/auth";
+import RichTextEditor from "@/components/RichTextEditor";
+import ImageUpload from "@/components/ImageUploader";
 
-const blogPosts = [
-  {
-    id: 1,
-    title: "The Future of Carbon Offsetting: Technology and Innovation",
-    excerpt:
-      "Exploring how emerging technologies are revolutionizing carbon offset markets and making environmental impact measurement more accurate.",
-    author: "Dr. Sarah Green",
-    status: "published",
-    publishDate: "2024-06-15",
-    views: 1247,
-    featured: false,
-  },
-  {
-    id: 2,
-    title: "Corporate Carbon Footprint: A Comprehensive Guide",
-    excerpt:
-      "Everything businesses need to know about measuring, tracking, and reducing their carbon footprint in 2024.",
-    author: "Michael Chen",
-    status: "published",
-    publishDate: "2024-06-12",
-    views: 892,
-    featured: false,
-  },
-  {
-    id: 3,
-    title: "Renewable Energy Credits vs Carbon Offsetting",
-    excerpt:
-      "Understanding the differences between RECs and carbon offsets, and how they fit into your sustainability strategy.",
-    author: "Dr. Sarah Green",
-    status: "draft",
-    publishDate: "2024-06-20",
-    views: 0,
-    featured: false,
-  },
-  {
-    id: 4,
-    title: "Forest Conservation Projects: Impact and Verification",
-    excerpt:
-      "Deep dive into how forest conservation projects generate carbon credits and the verification process.",
-    author: "Emily Rodriguez",
-    status: "published",
-    publishDate: "2024-06-10",
-    views: 1534,
-    featured: false,
-  },
-];
-
-const statuses = ["All Blogs", "published", "draft"];
+const categories = ["All Categories", "Blog", "News", "Tutorial", "Guide"];
 
 export default function Blogs() {
-  const [selectedStatus, setSelectedStatus] = useState("All Blogs");
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const {
+    posts,
+    loading,
+    error,
+    fetchPosts,
+    createPost,
+    deletePost,
+    updatePost,
+  } = useBlogStore();
+
+  const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
-  const [newPost, setNewPost] = useState({
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newPost, setNewPost] = useState<CreateBlogPost>({
     title: "",
     excerpt: "",
-    content: "",
     author: "",
-    featured: false,
+    category: "Blog",
+    sub_category: "Educational",
+    date: new Date().toISOString().split("T")[0],
+    image: "",
+    link: "",
   });
 
-  const filteredPosts = blogPosts
+  // fetching on mount
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
+  // stripping HTML tags
+  const stripHtmlTags = (html: string) => {
+    if (!html) return "";
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return doc.body.textContent || "";
+  };
+
+  // excerpt preview
+  const getExcerptPreview = (excerpt: string, maxLength: number = 100) => {
+    const text = stripHtmlTags(excerpt);
+    return text.length > maxLength
+      ? text.substring(0, maxLength) + "..."
+      : text;
+  };
+
+  // filter and sort posts
+  const filteredPosts = posts
     .filter((post) => {
-      const matchesStatus =
-        selectedStatus === "All Blogs" || post.status === selectedStatus;
+      const matchesCategory =
+        selectedCategory === "All Categories" ||
+        post.category === selectedCategory;
+
+      const searchLower = searchTerm.toLowerCase();
+      const postTitle = (post.title || "").toLowerCase();
+      const postExcerpt = stripHtmlTags(post.excerpt || "").toLowerCase();
+
       const matchesSearch =
-        post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        post.excerpt.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesStatus && matchesSearch;
+        postTitle.includes(searchLower) || postExcerpt.includes(searchLower);
+
+      return matchesCategory && matchesSearch;
     })
     .sort((a, b) => {
-      const dateA = new Date(a.publishDate).getTime();
-      const dateB = new Date(b.publishDate).getTime();
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
       return sortOrder === "latest" ? dateB - dateA : dateA - dateB;
     });
 
-  const handleCreatePost = () => {
-    console.log("Creating new post:", newPost);
+  const handleCreatePost = async () => {
+    if (isSubmitting) return;
+
+    // required fields
+    if (!newPost.title.trim()) {
+      alert("Please enter a title for the blog post.");
+      return;
+    }
+
+    if (!newPost.excerpt.trim()) {
+      alert("Please enter content for the blog post.");
+      return;
+    }
+
+    if (!newPost.author.trim()) {
+      alert("Please enter an author name.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (editingPost) {
+        // existing post
+        await updatePost(
+          {
+            id: editingPost.id,
+            ...newPost,
+          },
+          accessToken
+        );
+      } else {
+        // new post
+        await createPost(newPost, accessToken);
+      }
+
+      // reset
+      handleCloseDialog();
+    } catch (error) {
+      console.error("Failed to save post:", error);
+      alert(
+        `Failed to ${editingPost ? "update" : "create"} post: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+      alert(
+        `Failed to ${editingPost ? "update" : "create"} post. Please try again.`
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditPost = (id: number) => {
-    console.log("Editing post:", id);
+    const post = posts.find((p) => p.id === id);
+    if (post) {
+      setEditingPost(post);
+      setNewPost({
+        title: post.title || "",
+        excerpt: post.excerpt || "",
+        author: post.author || "",
+        category: post.category || "Blog",
+        sub_category: post.sub_category || "Educational",
+        date: post.date || new Date().toISOString().split("T")[0],
+        image: post.image || "",
+        link: post.link || "",
+      });
+      setIsDialogOpen(true);
+    }
   };
 
-  const handleDeletePost = (id: number) => {
-    console.log("Deleting post:", id);
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setEditingPost(null);
+    setIsSubmitting(false);
+    setNewPost({
+      title: "",
+      excerpt: "",
+      author: "",
+      category: "Blog",
+      sub_category: "Educational",
+      date: new Date().toISOString().split("T")[0],
+      image: "",
+      link: "",
+    });
+  };
+
+  const handleDeletePost = async (id: number) => {
+    if (window.confirm("Are you sure you want to delete this post?")) {
+      try {
+        await deletePost(id, accessToken);
+      } catch (error) {
+        console.error("Failed to delete post:", error);
+        alert("Failed to delete post. Please try again.");
+      }
+    }
   };
 
   const handleViewPost = (id: number) => {
-    console.log("Viewing post:", id);
+    // new tab with the blog detail
+    window.open(`/blogs/${id}`, "_blank");
   };
 
   const toggleSortOrder = () => {
     setSortOrder((prev) => (prev === "latest" ? "oldest" : "latest"));
   };
+
+  const handleCreateNewPost = () => {
+    setEditingPost(null);
+    setNewPost({
+      title: "",
+      excerpt: "",
+      author: "",
+      category: "Blog",
+      sub_category: "Educational",
+      date: new Date().toISOString().split("T")[0],
+      image: "",
+      link: "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const uniqueCategories = [
+    ...new Set(posts.map((post) => post.category).filter(Boolean)),
+  ];
+
+  if (loading && posts.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading blogs...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center text-red-600">
+          <p>Error loading blogs: {error}</p>
+          <Button onClick={fetchPosts} className="mt-4">
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -155,22 +283,40 @@ export default function Blogs() {
             sustainability
           </p>
         </div>
-        <Dialog>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-carbon-gradient hover:bg-carbon-600">
+            <Button
+              className="bg-green-600 hover:bg-green-700"
+              onClick={handleCreateNewPost}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Create Post
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] bg-background border">
+          <DialogContent className="sm:max-w-[800px] bg-background border max-h-[90vh] overflow-y-auto">
             <DialogHeader className="text-center">
-              <DialogTitle>Create New Blog Post</DialogTitle>
+              <DialogTitle>
+                {editingPost ? "Edit Blog Post" : "Create New Blog Post"}
+              </DialogTitle>
               <DialogDescription>
-                Write a new blog post about carbon emissions and sustainability
+                {editingPost
+                  ? "Update the blog post details"
+                  : "Write a new blog post about carbon emissions and sustainability"}
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
-              <div className="grid grid-cols-1 gap-4">
+            <div className="grid gap-6 py-4 px-4">
+              <div className="grid grid-cols-1 gap-6">
+                {/* Image Upload */}
+                <div className="space-y-2">
+                  <Label htmlFor="image">Featured Image (Optional)</Label>
+                  <ImageUpload
+                    value={newPost.image}
+                    onChange={(url) => setNewPost({ ...newPost, image: url })}
+                  />
+                </div>
+
+                {/* Title */}
                 <div className="space-y-2">
                   <Label htmlFor="title">Title</Label>
                   <Input
@@ -179,51 +325,119 @@ export default function Blogs() {
                     onChange={(e) =>
                       setNewPost({ ...newPost, title: e.target.value })
                     }
-                    placeholder="Enter post title"
+                    placeholder="Enter post title..."
+                    className="text-lg font-medium"
+                    required
                   />
                 </div>
+
+                {/* Basic Fields Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="author">Author</Label>
+                    <Input
+                      id="author"
+                      value={newPost.author}
+                      onChange={(e) =>
+                        setNewPost({ ...newPost, author: e.target.value })
+                      }
+                      placeholder="Author name"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="date">Date</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={newPost.date}
+                      onChange={(e) =>
+                        setNewPost({ ...newPost, date: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Category Fields Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Input
+                      id="category"
+                      value={newPost.category}
+                      onChange={(e) =>
+                        setNewPost({ ...newPost, category: e.target.value })
+                      }
+                      placeholder="Category"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sub_category">Sub Category</Label>
+                    <Input
+                      id="sub_category"
+                      value={newPost.sub_category}
+                      onChange={(e) =>
+                        setNewPost({ ...newPost, sub_category: e.target.value })
+                      }
+                      placeholder="Sub category"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Link Field */}
                 <div className="space-y-2">
-                  <Label htmlFor="author">Author</Label>
+                  <Label htmlFor="link">External Link (Optional)</Label>
                   <Input
-                    id="author"
-                    value={newPost.author}
+                    id="link"
+                    type="url"
+                    value={newPost.link}
                     onChange={(e) =>
-                      setNewPost({ ...newPost, author: e.target.value })
+                      setNewPost({ ...newPost, link: e.target.value })
                     }
-                    placeholder="Author name"
+                    placeholder="https://example.com"
                   />
                 </div>
+
+                {/* Content with Rich Text Editor */}
                 <div className="space-y-2">
-                  <Label htmlFor="excerpt">Excerpt</Label>
-                  <Textarea
-                    id="excerpt"
+                  <Label htmlFor="excerpt">Blog Content</Label>
+                  <RichTextEditor
                     value={newPost.excerpt}
-                    onChange={(e) =>
-                      setNewPost({ ...newPost, excerpt: e.target.value })
+                    onChange={(value) =>
+                      setNewPost({ ...newPost, excerpt: value })
                     }
-                    placeholder="Brief description of the post"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="content">Content</Label>
-                  <Textarea
-                    id="content"
-                    value={newPost.content}
-                    onChange={(e) =>
-                      setNewPost({ ...newPost, content: e.target.value })
-                    }
-                    placeholder="Write your blog post content here..."
-                    className="min-h-32"
+                    placeholder="Write your blog post content here. Use the toolbar to format text, add links, lists, and more..."
                   />
                 </div>
               </div>
             </div>
-            <div className="flex justify-center px-4 pb-4">
+            <div className="flex justify-between gap-4 px-4 pb-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseDialog}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
               <Button
                 onClick={handleCreatePost}
-                className="bg-carbon-gradient w-full"
+                className="bg-green-600 hover:bg-green-700"
+                disabled={isSubmitting}
               >
-                Create Post
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {editingPost ? "Updating..." : "Creating..."}
+                  </>
+                ) : editingPost ? (
+                  "Update Post"
+                ) : (
+                  "Create Post"
+                )}
               </Button>
             </div>
           </DialogContent>
@@ -235,54 +449,68 @@ export default function Blogs() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Posts</CardTitle>
-            <BookOpen className="h-4 w-4 text-carbon-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-carbon-700">
-              {blogPosts.length}
-            </div>
-            <p className="text-xs text-muted-foreground">+2 from last month</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Published</CardTitle>
-            <Eye className="h-4 w-4 text-green-600" />
+            <BookOpen className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-700">
-              {blogPosts.filter((post) => post.status === "published").length}
+              {posts.length}
             </div>
-            <p className="text-xs text-muted-foreground">Live on website</p>
+            <p className="text-xs text-muted-foreground">All blog posts</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Drafts</CardTitle>
-            <Edit className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-700">
-              {blogPosts.filter((post) => post.status === "draft").length}
-            </div>
-            <p className="text-xs text-muted-foreground">In progress</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-            <Eye className="h-4 w-4 text-blue-600" />
+            <CardTitle className="text-sm font-medium">Categories</CardTitle>
+            <Filter className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-700">
-              {blogPosts
-                .reduce((sum, post) => sum + post.views, 0)
-                .toLocaleString()}
+              {uniqueCategories.length}
             </div>
-            <p className="text-xs text-muted-foreground">All time views</p>
+            <p className="text-xs text-muted-foreground">Unique categories</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">This Month</CardTitle>
+            <Calendar className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-700">
+              {
+                posts.filter((post) => {
+                  const postDate = new Date(post.date);
+                  const currentDate = new Date();
+                  return (
+                    postDate.getMonth() === currentDate.getMonth() &&
+                    postDate.getFullYear() === currentDate.getFullYear()
+                  );
+                }).length
+              }
+            </div>
+            <p className="text-xs text-muted-foreground">Posts this month</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Recent</CardTitle>
+            <Eye className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-700">
+              {
+                posts.filter((post) => {
+                  const postDate = new Date(post.date);
+                  const weekAgo = new Date();
+                  weekAgo.setDate(weekAgo.getDate() - 7);
+                  return postDate >= weekAgo;
+                }).length
+              }
+            </div>
+            <p className="text-xs text-muted-foreground">Last 7 days</p>
           </CardContent>
         </Card>
       </div>
@@ -304,15 +532,18 @@ export default function Blogs() {
                 className="pl-10"
               />
             </div>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <Select
+              value={selectedCategory}
+              onValueChange={setSelectedCategory}
+            >
               <SelectTrigger className="w-48">
                 <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Filter by status" />
+                <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent className="bg-popover border">
-                {statuses.map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -331,9 +562,8 @@ export default function Blogs() {
             <TableHeader>
               <TableRow>
                 <TableHead>Title</TableHead>
-                <TableHead>Author</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Views</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Sub-Category</TableHead>
                 <TableHead>
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
@@ -347,63 +577,39 @@ export default function Blogs() {
               {filteredPosts.map((post) => (
                 <TableRow key={post.id}>
                   <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <div className="font-medium">{post.title}</div>
-                        {post.featured && (
-                          <Badge
-                            variant="secondary"
-                            className="bg-yellow-100 text-yellow-700"
-                          >
-                            Featured
-                          </Badge>
-                        )}
+                    <div className="space-y-1 max-w-lg">
+                      <div className="font-medium line-clamp-2">
+                        {stripHtmlTags(post.title || "")}
                       </div>
                       <div className="text-sm text-muted-foreground line-clamp-2">
-                        {post.excerpt}
+                        {getExcerptPreview(post.excerpt || "", 150)}
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      {post.author}
+                    <div className="space-y-1">
+                      <Badge variant="outline">
+                        {post.category || "Uncategorized"}
+                      </Badge>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        post.status === "published" ? "default" : "secondary"
-                      }
-                      className={
-                        post.status === "published"
-                          ? "bg-green-500"
-                          : "bg-yellow-500"
-                      }
-                    >
-                      {post.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                      {post.views.toLocaleString()}
-                    </div>
-                  </TableCell>
-                  <TableCell>{post.publishDate}</TableCell>
+                  <TableCell>{post.sub_category}</TableCell>
+                  <TableCell>{post.date}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleViewPost(post.id)}
+                        title="View post in new tab"
                       >
-                        <Eye className="h-4 w-4" />
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEditPost(post.id)}
+                        title="Edit post"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -411,6 +617,8 @@ export default function Blogs() {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleDeletePost(post.id)}
+                        className="text-red-600 hover:text-red-700"
+                        title="Delete post"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -420,6 +628,12 @@ export default function Blogs() {
               ))}
             </TableBody>
           </Table>
+
+          {filteredPosts.length === 0 && !loading && (
+            <div className="text-center py-8 text-muted-foreground">
+              No blog posts found matching your criteria.
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

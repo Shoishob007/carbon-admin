@@ -1,5 +1,5 @@
 import { ComponentType } from "react";
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/AdminDashboard";
 import ApiDocs from "./pages/ApiDocs";
 import Blogs from "./pages/Blogs";
 import Subscriptions from "./pages/Subscriptions";
@@ -15,6 +15,7 @@ import Register from "./pages/Register";
 import MySubscription from "./pages/mySubscriptions";
 import Pricing from "./pages/Pricing";
 import SettingsPage from "./app/(dashboard)/settings/page";
+import BlogDetails from "./pages/BlogDetails";
 
 // route objects
 export interface AppRoute {
@@ -43,9 +44,15 @@ export const routes: AppRoute[] = [
     layout: "dashboard",
     roles: ["super_admin"],
   },
+    {
+    path: "/blogs/:id",
+    component: BlogDetails,
+    layout: "dashboard",
+    roles: ["super_admin"],
+  },
   {
     path: "/blogs/create",
-    component: Blogs,
+    component: BlogDetails,
     layout: "dashboard",
     roles: ["super_admin"],
   },
@@ -54,7 +61,8 @@ export const routes: AppRoute[] = [
     component: Subscriptions,
     layout: "dashboard",
     roles: ["super_admin", "business"],
-  },  {
+  },
+  {
     path: "/my-subscription",
     component: MySubscription,
     layout: "dashboard",

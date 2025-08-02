@@ -1,5 +1,4 @@
-
-import Dashboard from "@/pages/Dashboard";
+import Dashboard from "@/pages/AdminDashboard";
 
 export default function CalculatorPage() {
   return <Dashboard />;
