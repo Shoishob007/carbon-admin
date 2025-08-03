@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
-// Plan icons
+// icons
 const planIcons = [
   <Star key="basic" className="w-10 h-10 text-blue-500" />,
   <Crown key="popular" className="w-10 h-10 text-amber-500" />,
@@ -61,8 +61,10 @@ export default function Pricing() {
 
   const accessToken = useAuthStore((state) => state.accessToken);
   const { profile_update, loading: profileLoading, error: profileError } = useUserProfile();
+    const user = useAuthStore((s) => s.user);
+  const role = user?.role;
 
-  // console.log("Profile Update :: ", profile_update)
+  console.log("User :: ", role)
   
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null);
@@ -102,6 +104,9 @@ useEffect(() => {
     if (!accessToken) {
       toast.error("You must be logged in to subscribe.");
       return;
+    }
+    if(role == "super_admin"){
+      toast.error("Super Admin can't subscribe to own plans!")
     }
 
     try {
@@ -174,7 +179,7 @@ const handleUnsubscribe = async () => {
   }
 };
 
-  if (!profile_update) {
+  if (!profile_update && user.role == "business") {
     return <ProfileCompletePopup />;
   }
 

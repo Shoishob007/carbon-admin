@@ -138,11 +138,6 @@ export default function Blogs() {
       return;
     }
 
-    if (!newPost.author.trim()) {
-      alert("Please enter an author name.");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       if (editingPost) {
@@ -342,7 +337,6 @@ export default function Blogs() {
                         setNewPost({ ...newPost, author: e.target.value })
                       }
                       placeholder="Author name"
-                      required
                     />
                   </div>
                   <div className="space-y-2">

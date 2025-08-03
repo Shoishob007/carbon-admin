@@ -40,7 +40,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -292,7 +291,7 @@ export default function Users() {
                 <SelectValue placeholder="Filter by role" />
               </SelectTrigger>
               <SelectContent className="bg-popover border">
-                {["All Users", "super_admin", "individual", "business"].map(
+                {["All Users", "individual", "business"].map(
                   (role) => (
                     <SelectItem key={role} value={role}>
                       {role}
@@ -433,9 +432,7 @@ export default function Users() {
                       <Badge
                         variant="outline"
                         className={
-                          user.role === "super_admin"
-                            ? "border-red-500 text-red-700"
-                            : user.role === "business"
+                          user.role === "business"
                             ? "border-blue-500 text-blue-700"
                             : "border-gray-500 text-gray-700"
                         }

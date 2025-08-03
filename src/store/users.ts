@@ -5,7 +5,7 @@ interface User {
   id: number;
   email: string;
   name: string;
-  role: "super_admin" | "individual" | "business";
+  role: "individual" | "business" | "super_admin";
   is_active: boolean;
   profile_image: string | null;
   profile: {
@@ -37,21 +37,24 @@ export const useUsersStore = create<UsersState>()(
       fetchUsers: async (accessToken: string) => {
         set({ loading: true, error: null });
         try {
-          const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/users/users`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`,
-              },
-            }
+          const url = new URL(
+            `${import.meta.env.VITE_API_URL}/api/users/users`
           );
+          const response = await fetch(url.toString(), {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
 
           if (!response.ok) throw new Error("Failed to fetch users");
 
           const data = await response.json();
-          set({ apiUsers: data.users });
+          
+          const filteredUsers = data.users.filter((user: User) => user.role !== "super_admin");
+          
+          set({ apiUsers: filteredUsers });
         } catch (error) {
           set({
             error:

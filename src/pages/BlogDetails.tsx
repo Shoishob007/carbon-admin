@@ -123,13 +123,6 @@ export default function BlogDetails() {
                 {post.title}
               </h1>
 
-              {/* Author if exists */}
-              {post.author && post.author.trim() && (
-                <span className="text-[#163820] font-semibold text-sm mb-6 block">
-                  By {post.author}
-                </span>
-              )}
-
               {/* Blog Content */}
               <div
                 className="prose-green max-w-none text-[#444] leading-relaxed"

@@ -69,19 +69,19 @@ const baseMenuItems: MenuItem[] = [
     roles: ["super_admin"],
     hasSubItems: false,
   },
+    {
+    title: "Subscriptions",
+    url: "/subscriptions",
+    icon: CreditCard,
+    roles: ["super_admin", "business", "individual"],
+    hasSubItems: true,
+  },
   {
     title: "Blogs",
     url: "/blogs",
     icon: BookOpen,
     roles: ["super_admin"],
     hasSubItems: false,
-  },
-  {
-    title: "Subscriptions",
-    url: "/subscriptions",
-    icon: CreditCard,
-    roles: ["super_admin", "business", "individual"],
-    hasSubItems: true,
   },
   {
     title: "FAQ",

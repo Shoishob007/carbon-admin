@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -21,6 +21,7 @@ import {
   Calendar,
   Download,
   DollarSign,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -40,39 +41,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useBillingStore } from "@/store/billingStore";
+import { useAuthStore } from "@/store/auth";
 
-// Demo Data
-const initialBillings = [
-  {
-    id: 1,
-    customer: "EcoTech Solutions",
-    plan: "Professional Carbon",
-    status: "active",
-    method: "Credit Card",
-    nextInvoice: "2025-08-15",
-    amount: 89,
-  },
-  {
-    id: 2,
-    customer: "Green Manufacturing Co",
-    plan: "Enterprise Sustainability",
-    status: "active",
-    method: "Wire Transfer",
-    nextInvoice: "2025-08-12",
-    amount: 299,
-  },
-  {
-    id: 3,
-    customer: "Sustainable Logistics Ltd",
-    plan: "Starter Green",
-    status: "inactive",
-    method: "Credit Card",
-    nextInvoice: "-",
-    amount: 0,
-  },
-];
-
+// Demo Data for invoices (keeping as is)
 const initialInvoices = [
   {
     id: 101,
@@ -107,86 +86,63 @@ const initialInvoices = [
 ];
 
 export default function Billing() {
-  const [billings, setBillings] = useState(initialBillings);
-  const [invoices, setInvoices] = useState(initialInvoices);
+  const {
+    payments,
+    loading,
+    error,
+    selectedPayment,
+    fetchPayments,
+    fetchPaymentById,
+    clearSelectedPayment,
+  } = useBillingStore();
+  console.log("Selected Payment :: ", selectedPayment);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const [invoices] = useState(initialInvoices);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
-  const [newBilling, setNewBilling] = useState({
-    customer: "",
-    plan: "",
-    status: "active",
-    method: "Credit Card",
-    amount: 0,
-    nextInvoice: "",
-  });
-
-  const [editBillingId, setEditBillingId] = useState<number | null>(null);
-  const [editBilling, setEditBilling] = useState({
-    customer: "",
-    plan: "",
-    status: "active",
-    method: "Credit Card",
-    amount: 0,
-    nextInvoice: "",
-  });
+  // Fetch payments on component mount
+  useEffect(() => {
+    if (accessToken) {
+      fetchPayments(accessToken);
+    }
+  }, [accessToken, fetchPayments]);
 
   // Statistics
-  const totalCustomers = billings.length;
-  const activeCustomers = billings.filter((b) => b.status === "active").length;
-  const totalRevenue = invoices.reduce(
-    (sum, inv) => sum + (inv.status === "paid" ? inv.amount : 0),
-    0
-  );
+  const totalCustomers = payments.length;
+  const activeCustomers = payments.filter(
+    (p) => p.subscription_details.status === "active"
+  ).length;
+  const totalRevenue = payments
+    .filter((p) => p.payment_status === "completed")
+    .reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
 
-  // CRUD Logic for Customer Billing
-  const handleCreateBilling = () => {
-    if (!newBilling.customer.trim() || !newBilling.plan.trim()) return;
-    setBillings([
-      ...billings,
-      {
-        ...newBilling,
-        id: Math.max(0, ...billings.map((b) => b.id)) + 1,
-      },
-    ]);
-    setNewBilling({
-      customer: "",
-      plan: "",
-      status: "active",
-      method: "Credit Card",
-      amount: 0,
-      nextInvoice: "",
-    });
+  const handleViewPaymentDetails = async (id) => {
+    if (accessToken) {
+      await fetchPaymentById(id, accessToken);
+      setIsPaymentDialogOpen(true);
+    }
   };
 
-  const openEditBilling = (billing: typeof billings[0]) => {
-    setEditBillingId(billing.id);
-    setEditBilling({
-      customer: billing.customer,
-      plan: billing.plan,
-      status: billing.status,
-      method: billing.method,
-      amount: billing.amount,
-      nextInvoice: billing.nextInvoice,
-    });
+  const handleCloseDialog = () => {
+    setIsPaymentDialogOpen(false);
+    clearSelectedPayment();
   };
 
-  const handleSaveEditBilling = () => {
-    if (editBillingId === null) return;
-    setBillings((prev) =>
-      prev.map((billing) =>
-        billing.id === editBillingId
-          ? {
-              ...billing,
-              ...editBilling,
-            }
-          : billing
-      )
+  if (loading && payments.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
     );
-    setEditBillingId(null);
-  };
+  }
 
-  const handleDeleteBilling = (id: number) => {
-    setBillings(billings.filter((billing) => billing.id !== id));
-  };
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen text-red-500">
+        Error: {error}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -199,115 +155,6 @@ export default function Billing() {
             Manage customer billing information and review invoices
           </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-carbon-gradient hover:bg-carbon-600">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Billing
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] bg-background border">
-            <DialogHeader className="text-center">
-              <DialogTitle>Add Customer Billing</DialogTitle>
-              <DialogDescription>
-                Add a new billing setup for a customer
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
-              <div className="space-y-2">
-                <Label htmlFor="billing-customer">Customer Name</Label>
-                <Input
-                  id="billing-customer"
-                  value={newBilling.customer}
-                  onChange={(e) =>
-                    setNewBilling({ ...newBilling, customer: e.target.value })
-                  }
-                  placeholder="e.g., EcoTech Solutions"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="billing-plan">Plan</Label>
-                <Input
-                  id="billing-plan"
-                  value={newBilling.plan}
-                  onChange={(e) =>
-                    setNewBilling({ ...newBilling, plan: e.target.value })
-                  }
-                  placeholder="Subscription Plan"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="billing-amount">Monthly Amount ($)</Label>
-                <Input
-                  id="billing-amount"
-                  type="number"
-                  value={newBilling.amount}
-                  onChange={(e) =>
-                    setNewBilling({
-                      ...newBilling,
-                      amount: parseFloat(e.target.value),
-                    })
-                  }
-                  placeholder="89"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="billing-next">Next Invoice Date</Label>
-                <Input
-                  id="billing-next"
-                  type="date"
-                  value={newBilling.nextInvoice}
-                  onChange={(e) =>
-                    setNewBilling({ ...newBilling, nextInvoice: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="billing-method">Payment Method</Label>
-                <Select
-                  value={newBilling.method}
-                  onValueChange={(value) =>
-                    setNewBilling({ ...newBilling, method: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border">
-                    <SelectItem value="Credit Card">Credit Card</SelectItem>
-                    <SelectItem value="Wire Transfer">Wire Transfer</SelectItem>
-                    <SelectItem value="PayPal">PayPal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="billing-status">Status</Label>
-                <Select
-                  value={newBilling.status}
-                  onValueChange={(value) =>
-                    setNewBilling({ ...newBilling, status: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover border">
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex justify-center px-4 pb-4">
-              <Button
-                onClick={handleCreateBilling}
-                className="bg-carbon-gradient w-full"
-              >
-                Add Billing
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
       {/* Statistics Cards */}
@@ -328,15 +175,15 @@ export default function Billing() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Paid Revenue (This Month)</CardTitle>
+            <CardTitle className="text-sm font-medium">Paid Revenue</CardTitle>
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-700">
-              ${totalRevenue.toLocaleString()}
+              ${totalRevenue.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Revenue from paid invoices
+              Total completed payments
             </p>
           </CardContent>
         </Card>
@@ -357,12 +204,12 @@ export default function Billing() {
         </Card>
       </div>
 
-      {/* Customer Billings Table */}
+      {/* Customer Payments Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Customer Billings</CardTitle>
+          <CardTitle>Customer Payments</CardTitle>
           <CardDescription>
-            Manage customer billing information and payment methods
+            View and manage customer payment records
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -372,192 +219,96 @@ export default function Billing() {
                 <TableHead>Customer</TableHead>
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Method</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Next Invoice</TableHead>
+                <TableHead>Payment Date</TableHead>
+                <TableHead>Payment Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {billings.map((billing) => (
-                <TableRow key={billing.id}>
-                  <TableCell className="font-medium">{billing.customer}</TableCell>
-                  <TableCell>{billing.plan}</TableCell>
+              {payments.map((payment) => (
+                <TableRow key={payment.id}>
+                  <TableCell className="font-medium">
+                    <div>{payment.user_name || "N/A"}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {payment.user_email || "N/A"}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {payment.subscription_details?.plan_name || "N/A"}
+                    <div className="text-sm text-muted-foreground">
+                      {payment.subscription_details?.payment_frequency || "N/A"}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={
-                        billing.status === "active"
+                        payment.subscription_details?.status === "active"
                           ? "default"
                           : "secondary"
                       }
                       className={
-                        billing.status === "active"
+                        payment.subscription_details?.status === "active"
                           ? "bg-green-500"
                           : "bg-gray-500"
                       }
                     >
-                      {billing.status.charAt(0).toUpperCase() + billing.status.slice(1)}
+                      {payment.subscription_details?.status
+                        ? payment.subscription_details.status
+                            .charAt(0)
+                            .toUpperCase() +
+                          payment.subscription_details.status.slice(1)
+                        : "N/A"}
                     </Badge>
                   </TableCell>
-                  <TableCell>{billing.method}</TableCell>
+                  <TableCell>${payment.amount || "0.00"}</TableCell>
                   <TableCell>
-                    {billing.amount > 0 ? `$${billing.amount}` : "-"}
+                    {payment.payment_date
+                      ? new Date(payment.payment_date).toLocaleDateString()
+                      : "N/A"}
                   </TableCell>
                   <TableCell>
-                    {billing.nextInvoice !== "-" && billing.nextInvoice ? (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        {billing.nextInvoice}
-                      </span>
-                    ) : (
-                      "-"
-                    )}
+                    <Badge
+                      variant={
+                        payment.payment_status === "completed"
+                          ? "default"
+                          : payment.payment_status === "pending"
+                          ? "secondary"
+                          : "destructive"
+                      }
+                      className={
+                        payment.payment_status === "completed"
+                          ? "bg-green-500"
+                          : payment.payment_status === "pending"
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
+                      }
+                    >
+                      {payment.payment_status
+                        ? payment.payment_status.charAt(0).toUpperCase() +
+                          payment.payment_status.slice(1)
+                        : "N/A"}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      {/* Edit */}
-                      <Dialog
-                        open={editBillingId === billing.id}
-                        onOpenChange={(open) => !open && setEditBillingId(null)}
-                      >
-                        <DialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditBilling(billing)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[600px] bg-background border">
-                          <DialogHeader className="text-center">
-                            <DialogTitle>Edit Billing</DialogTitle>
-                            <DialogDescription>
-                              Update customer billing details
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="edit-billing-customer">Customer Name</Label>
-                              <Input
-                                id="edit-billing-customer"
-                                value={editBilling.customer}
-                                onChange={(e) =>
-                                  setEditBilling({
-                                    ...editBilling,
-                                    customer: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="edit-billing-plan">Plan</Label>
-                              <Input
-                                id="edit-billing-plan"
-                                value={editBilling.plan}
-                                onChange={(e) =>
-                                  setEditBilling({
-                                    ...editBilling,
-                                    plan: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="edit-billing-amount">Monthly Amount ($)</Label>
-                              <Input
-                                id="edit-billing-amount"
-                                type="number"
-                                value={editBilling.amount}
-                                onChange={(e) =>
-                                  setEditBilling({
-                                    ...editBilling,
-                                    amount: parseFloat(e.target.value),
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="edit-billing-next">Next Invoice Date</Label>
-                              <Input
-                                id="edit-billing-next"
-                                type="date"
-                                value={editBilling.nextInvoice}
-                                onChange={(e) =>
-                                  setEditBilling({
-                                    ...editBilling,
-                                    nextInvoice: e.target.value,
-                                  })
-                                }
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="edit-billing-method">Payment Method</Label>
-                              <Select
-                                value={editBilling.method}
-                                onValueChange={(value) =>
-                                  setEditBilling({ ...editBilling, method: value })
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-popover border">
-                                  <SelectItem value="Credit Card">Credit Card</SelectItem>
-                                  <SelectItem value="Wire Transfer">Wire Transfer</SelectItem>
-                                  <SelectItem value="PayPal">PayPal</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="edit-billing-status">Status</Label>
-                              <Select
-                                value={editBilling.status}
-                                onValueChange={(value) =>
-                                  setEditBilling({ ...editBilling, status: value })
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-popover border">
-                                  <SelectItem value="active">Active</SelectItem>
-                                  <SelectItem value="inactive">Inactive</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <div className="flex justify-center px-4 pb-4 gap-2">
-                            <Button
-                              onClick={handleSaveEditBilling}
-                              className="bg-carbon-gradient w-full"
-                            >
-                              Save Changes
-                            </Button>
-                            <DialogClose asChild>
-                              <Button variant="outline" className="w-full">
-                                Cancel
-                              </Button>
-                            </DialogClose>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                      {/* Delete */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteBilling(billing.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewPaymentDetails(payment.user)}
+                    >
+                      <FileText className="h-4 w-4" />
+                      Details
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
-              {billings.length === 0 && (
+              {payments.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
-                    No customer billings found.
+                  <TableCell
+                    colSpan={7}
+                    className="text-center text-muted-foreground"
+                  >
+                    No payment records found.
                   </TableCell>
                 </TableRow>
               )}
@@ -566,7 +317,191 @@ export default function Billing() {
         </CardContent>
       </Card>
 
-      {/* Invoices Table */}
+      {/* Payment Details Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>Payment Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about this payment record
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPayment ? (
+            <div className="grid gap-4 py-4">
+              {/* Customer Information */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Customer Name</Label>
+                  <p className="text-sm mt-1 font-medium">{selectedPayment.user_name || "N/A"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700">Customer Email</Label>
+                  <p className="text-sm mt-1 font-medium">{selectedPayment.user_email || "N/A"}</p>
+                </div>
+              </div>
+
+              {/* Payment Details */}
+              {selectedPayment.payments && selectedPayment.payments.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="border-t pt-4">
+                    <h4 className="text-lg font-semibold mb-3">Payment Information</h4>
+                    
+                    {selectedPayment.payments.map((payment, index) => (
+                      <div key={payment.id} className="space-y-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium text-gray-700">Subscription Plan</Label>
+                            <p className="text-sm mt-1 font-medium">
+                              {payment.subscription_details?.plan_name || "N/A"}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {payment.subscription_details?.payment_frequency || "N/A"}
+                            </p>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-gray-700">Subscription Status</Label>
+                            <div className="mt-1">
+                              <Badge
+                                variant={
+                                  payment.subscription_details?.status === "active"
+                                    ? "default"
+                                    : "secondary"
+                                }
+                                className={
+                                  payment.subscription_details?.status === "active"
+                                    ? "bg-green-500"
+                                    : "bg-gray-500"
+                                }
+                              >
+                                {payment.subscription_details?.status
+                                  ? payment.subscription_details.status
+                                      .charAt(0)
+                                      .toUpperCase() +
+                                    payment.subscription_details.status.slice(1)
+                                  : "N/A"}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium text-gray-700">Amount</Label>
+                            <p className="text-sm mt-1 font-bold text-green-600">
+                              ${parseFloat(payment.amount || "0").toFixed(2)}
+                            </p>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-gray-700">Payment Status</Label>
+                            <div className="mt-1">
+                              <Badge
+                                variant={
+                                  payment.payment_status === "completed"
+                                    ? "default"
+                                    : payment.payment_status === "pending"
+                                    ? "secondary"
+                                    : "destructive"
+                                }
+                                className={
+                                  payment.payment_status === "completed"
+                                    ? "bg-green-500"
+                                    : payment.payment_status === "pending"
+                                    ? "bg-yellow-500"
+                                    : "bg-red-500"
+                                }
+                              >
+                                {payment.payment_status
+                                  ? payment.payment_status.charAt(0).toUpperCase() +
+                                    payment.payment_status.slice(1)
+                                  : "N/A"}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-sm font-medium text-gray-700">Payment Date</Label>
+                            <p className="text-sm mt-1 font-medium">
+                              {payment.payment_date
+                                ? new Date(payment.payment_date).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "N/A"}
+                            </p>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium text-gray-700">Transaction ID</Label>
+                            <p className="text-sm mt-1 font-mono bg-gray-100 px-2 py-1 rounded">
+                              {payment.transaction_id || "N/A"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {payment.payment_method && (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label className="text-sm font-medium text-gray-700">Payment Method</Label>
+                              <p className="text-sm mt-1 font-medium">
+                                {payment.payment_method}
+                              </p>
+                            </div>
+                            <div>
+                              <Label className="text-sm font-medium text-gray-700">User ID</Label>
+                              <p className="text-sm mt-1 font-medium">
+                                {payment.user}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Summary Information */}
+                  <div className="pt-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700">Total Payments</Label>
+                        <p className="text-sm mt-1 font-bold">
+                          {selectedPayment.total_count || 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-muted-foreground py-8">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p>No payment details available for this user</p>
+                </div>
+              )}
+
+              {/* Close Button */}
+              <div className="pt-4 border-t">
+                <Button
+                  variant="destructive"
+                  onClick={handleCloseDialog}
+                  className="w-full"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Invoices Table (keeping as is) */}
       <Card>
         <CardHeader>
           <CardTitle>Invoices</CardTitle>
@@ -590,7 +525,9 @@ export default function Billing() {
             <TableBody>
               {invoices.map((inv) => (
                 <TableRow key={inv.id}>
-                  <TableCell className="font-mono">{inv.invoiceNumber}</TableCell>
+                  <TableCell className="font-mono">
+                    {inv.invoiceNumber}
+                  </TableCell>
                   <TableCell>{inv.customer}</TableCell>
                   <TableCell>{inv.date}</TableCell>
                   <TableCell>{inv.due}</TableCell>
@@ -643,7 +580,10 @@ export default function Billing() {
               ))}
               {invoices.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={7}
+                    className="text-center text-muted-foreground"
+                  >
                     No invoices found.
                   </TableCell>
                 </TableRow>
@@ -651,7 +591,7 @@ export default function Billing() {
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+        </Card>
     </div>
   );
 }
