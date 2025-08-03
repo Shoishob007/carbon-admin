@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+// store/billingStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+
 interface SubscriptionDetails {
   id: number;
   plan_name: string;
@@ -38,8 +40,13 @@ interface BillingState {
   loading: boolean;
   error: string | null;
   selectedPayment: PaymentDetailsResponse | null;
-  fetchPayments: (accessToken: string) => Promise<void>;
-  fetchPaymentById: (id: number, accessToken: string) => Promise<void>;
+  fetchPayments: (accessToken: string, role: string) => Promise<void>;
+  fetchPaymentById: (id: number, accessToken: string, role: string) => Promise<void>;
+  updatePaymentStatus: (
+    paymentId: number,
+    status: string,
+    accessToken: string
+  ) => Promise<void>;
   clearSelectedPayment: () => void;
 }
 
@@ -51,26 +58,30 @@ export const useBillingStore = create<BillingState>()(
       error: null,
       selectedPayment: null,
 
-      fetchPayments: async (accessToken: string) => {
+      fetchPayments: async (accessToken: string, role: string) => {
         set({ loading: true, error: null });
         try {
-          const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/subscription/admin/payments/`,
-            {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`,
-              },
-            }
-          );
+          let url;
+          if (role === "business") {
+            url = `${import.meta.env.VITE_API_URL}/api/subscription/my-payments/`;
+          } else {
+            url = `${import.meta.env.VITE_API_URL}/api/subscription/admin/payments/`;
+          }
+
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
 
           if (!response.ok) {
             throw new Error("Failed to fetch payments");
           }
 
           const data = await response.json();
-          set({ payments: data.payments });
+          set({ payments: data.payments || [] });
         } catch (error) {
           set({
             error: error instanceof Error ? error.message : "Failed to fetch payments",
@@ -80,35 +91,66 @@ export const useBillingStore = create<BillingState>()(
         }
       },
 
-fetchPaymentById: async (id: number, accessToken: string) => {
-  set({ loading: true, error: null });
-  try {
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/subscription/admin/users/${id}/payments/`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
+      fetchPaymentById: async (id: number, accessToken: string, role: string) => {
+        set({ loading: true, error: null });
+        try {
+          let url;
+          if (role === "business") {
+            url = `${import.meta.env.VITE_API_URL}/api/subscription/my-payments/`;
+          } else {
+            url = `${import.meta.env.VITE_API_URL}/api/subscription/admin/users/${id}/payments/`;
+          }
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch payment details");
-    }
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
 
-    const data = await response.json();
-    // Store the entire response object as selectedPayment
-    set({ selectedPayment: data });
-  } catch (error) {
-    set({
-      error: error instanceof Error ? error.message : "Failed to fetch payment details",
-    });
-  } finally {
-    set({ loading: false });
-  }
-},
+          if (!response.ok) {
+            throw new Error("Failed to fetch payment details");
+          }
+
+          const data = await response.json();
+          set({ selectedPayment: data });
+        } catch (error) {
+          set({
+            error: error instanceof Error ? error.message : "Failed to fetch payment details",
+          });
+          throw error;
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      updatePaymentStatus: async (paymentId, status, accessToken) => {
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/subscription/admin/payments/${paymentId}/status/`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({ payment_status: status }),
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error("Failed to update payment status");
+          }
+
+          // Refresh payments after update
+          const { fetchPayments } = useBillingStore.getState();
+          await fetchPayments(accessToken, "admin");
+        } catch (error) {
+          console.error("Error updating payment status:", error);
+          throw error;
+        }
+      },
 
       clearSelectedPayment: () => {
         set({ selectedPayment: null });

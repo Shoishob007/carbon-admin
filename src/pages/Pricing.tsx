@@ -369,8 +369,7 @@ const handleUnsubscribe = async () => {
               } else if (planPriceNumeric < currentPlanPrice) {
                 actionButton = (
                   <Button
-                    variant="outline"
-                    className="w-full h-12 font-semibold text-base rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all duration-300"
+                    className="w-full h-12 font-semibold text-base rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
                     onClick={() => handlePlanChange(plan.id)}
                     disabled={isUpdating}
                   >

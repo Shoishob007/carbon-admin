@@ -10,9 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Plus,
-  Edit,
-  Trash2,
   FileText,
   Users,
   Receipt,
@@ -29,8 +26,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,6 +36,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useBillingStore } from "@/store/billingStore";
+import { useAuthStore } from "@/store/auth";
 import {
   Select,
   SelectContent,
@@ -48,10 +45,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useBillingStore } from "@/store/billingStore";
-import { useAuthStore } from "@/store/auth";
 
-// Demo Data for invoices (keeping as is)
+// Demo Data for invoices
 const initialInvoices = [
   {
     id: 101,
@@ -94,31 +89,49 @@ export default function Billing() {
     fetchPayments,
     fetchPaymentById,
     clearSelectedPayment,
+    updatePaymentStatus,
   } = useBillingStore();
-  console.log("Selected Payment :: ", selectedPayment);
-  const accessToken = useAuthStore((state) => state.accessToken);
+  const { accessToken } = useAuthStore();
+  const role = useAuthStore((state) => state.user?.role);
   const [invoices] = useState(initialInvoices);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
 
   // Fetch payments on component mount
   useEffect(() => {
-    if (accessToken) {
-      fetchPayments(accessToken);
+    if (accessToken && role) {
+      fetchPayments(accessToken, role);
     }
-  }, [accessToken, fetchPayments]);
+  }, [accessToken, role, fetchPayments]);
+
+  console.log("payemnts :: ", payments);
 
   // Statistics
-  const totalCustomers = payments.length;
-  const activeCustomers = payments.filter(
-    (p) => p.subscription_details.status === "active"
-  ).length;
+  const totalCustomers = role === "business" ? 1 : payments.length;
+  const activeCustomers =
+    role === "business"
+      ? payments.some((p) => p.subscription_details?.status === "active")
+        ? 1
+        : 0
+      : payments.filter((p) => p.subscription_details?.status === "active")
+          .length;
+
   const totalRevenue = payments
     .filter((p) => p.payment_status === "completed")
     .reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
 
-  const handleViewPaymentDetails = async (id) => {
-    if (accessToken) {
-      await fetchPaymentById(id, accessToken);
+  const handleStatusChange = async (paymentId: number, newStatus: string) => {
+    try {
+      if (role === "super_admin" && accessToken) {
+        await updatePaymentStatus(paymentId, newStatus, accessToken);
+      }
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
+  };
+
+  const handleViewPaymentDetails = async (id: number) => {
+    if (accessToken && role) {
+      await fetchPaymentById(id, accessToken, role);
       setIsPaymentDialogOpen(true);
     }
   };
@@ -149,10 +162,12 @@ export default function Billing() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
-            Billing & Invoices
+            {role === "business" ? "My Billing" : "Billing & Invoices"}
           </h1>
           <p className="text-muted-foreground mt-2">
-            Manage customer billing information and review invoices
+            {role === "business"
+              ? "View your payment history and invoices"
+              : "Manage customer billing information and review invoices"}
           </p>
         </div>
       </div>
@@ -161,7 +176,9 @@ export default function Billing() {
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customers</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {role === "business" ? "My Plan" : "Customers"}
+            </CardTitle>
             <Users className="h-4 w-4 text-carbon-600" />
           </CardHeader>
           <CardContent>
@@ -175,7 +192,9 @@ export default function Billing() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Paid Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {role === "business" ? "Total Paid" : "Paid Revenue"}
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
@@ -183,7 +202,7 @@ export default function Billing() {
               ${totalRevenue.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Total completed payments
+              {role === "business" ? "My payments" : "Total completed payments"}
             </p>
           </CardContent>
         </Card>
@@ -204,19 +223,23 @@ export default function Billing() {
         </Card>
       </div>
 
-      {/* Customer Payments Table */}
+      {/* Payments Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Customer Payments</CardTitle>
+          <CardTitle>
+            {role === "business" ? "My Payments" : "Customer Payments"}
+          </CardTitle>
           <CardDescription>
-            View and manage customer payment records
+            {role === "business"
+              ? "View your payment history"
+              : "View and manage customer payment records"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Customer</TableHead>
+                {role !== "business" && <TableHead>Customer</TableHead>}
                 <TableHead>Plan</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Amount</TableHead>
@@ -228,12 +251,14 @@ export default function Billing() {
             <TableBody>
               {payments.map((payment) => (
                 <TableRow key={payment.id}>
-                  <TableCell className="font-medium">
-                    <div>{payment.user_name || "N/A"}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {payment.user_email || "N/A"}
-                    </div>
-                  </TableCell>
+                  {role !== "business" && (
+                    <TableCell className="font-medium">
+                      <div>{payment.user_name || "N/A"}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {payment.user_email || "N/A"}
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell>
                     {payment.subscription_details?.plan_name || "N/A"}
                     <div className="text-sm text-muted-foreground">
@@ -268,27 +293,45 @@ export default function Billing() {
                       : "N/A"}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant={
-                        payment.payment_status === "completed"
-                          ? "default"
-                          : payment.payment_status === "pending"
-                          ? "secondary"
-                          : "destructive"
-                      }
-                      className={
-                        payment.payment_status === "completed"
-                          ? "bg-green-500"
-                          : payment.payment_status === "pending"
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                      }
-                    >
-                      {payment.payment_status
-                        ? payment.payment_status.charAt(0).toUpperCase() +
-                          payment.payment_status.slice(1)
-                        : "N/A"}
-                    </Badge>
+                    {role === "super_admin" ? (
+                      <Select
+                        value={payment.payment_status}
+                        onValueChange={(value) =>
+                          handleStatusChange(payment.id, value)
+                        }
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Badge
+                        variant={
+                          payment.payment_status === "completed"
+                            ? "default"
+                            : payment.payment_status === "pending"
+                            ? "secondary"
+                            : "destructive"
+                        }
+                        className={
+                          payment.payment_status === "completed"
+                            ? "bg-green-500"
+                            : payment.payment_status === "pending"
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                        }
+                      >
+                        {payment.payment_status
+                          ? payment.payment_status.charAt(0).toUpperCase() +
+                            payment.payment_status.slice(1)
+                          : "N/A"}
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -305,7 +348,7 @@ export default function Billing() {
               {payments.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={role === "business" ? 6 : 7}
                     className="text-center text-muted-foreground"
                   >
                     No payment records found.
@@ -319,7 +362,7 @@ export default function Billing() {
 
       {/* Payment Details Dialog */}
       <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-[625px]">
+        <DialogContent className="sm:max-w-[625px] max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Payment Details</DialogTitle>
             <DialogDescription>
@@ -328,48 +371,71 @@ export default function Billing() {
           </DialogHeader>
 
           {selectedPayment ? (
-            <div className="grid gap-4 py-4">
+            <div className="flex-1 overflow-y-auto">
               {/* Customer Information */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">Customer Name</Label>
-                  <p className="text-sm mt-1 font-medium">{selectedPayment.user_name || "N/A"}</p>
+              {role !== "business" && (
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">
+                      Customer Name
+                    </Label>
+                    <p className="text-sm mt-1 font-medium">
+                      {selectedPayment.user_name || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700">
+                      Customer Email
+                    </Label>
+                    <p className="text-sm mt-1 font-medium">
+                      {selectedPayment.user_email || "N/A"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">Customer Email</Label>
-                  <p className="text-sm mt-1 font-medium">{selectedPayment.user_email || "N/A"}</p>
-                </div>
-              </div>
+              )}
 
               {/* Payment Details */}
-              {selectedPayment.payments && selectedPayment.payments.length > 0 ? (
+              {selectedPayment.payments &&
+              selectedPayment.payments.length > 0 ? (
                 <div className="space-y-4">
                   <div className="border-t pt-4">
-                    <h4 className="text-lg font-semibold mb-3">Payment Information</h4>
-                    
-                    {selectedPayment.payments.map((payment, index) => (
-                      <div key={payment.id} className="space-y-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="text-lg font-semibold mb-3">
+                      Payment Information
+                    </h4>
+
+                    {selectedPayment.payments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="space-y-4 mb-6 p-4 bg-gray-50 rounded-lg overflow-y-auto border-b-2"
+                      >
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label className="text-sm font-medium text-gray-700">Subscription Plan</Label>
+                            <Label className="text-sm font-medium text-gray-700">
+                              Subscription Plan
+                            </Label>
                             <p className="text-sm mt-1 font-medium">
                               {payment.subscription_details?.plan_name || "N/A"}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {payment.subscription_details?.payment_frequency || "N/A"}
+                              {payment.subscription_details
+                                ?.payment_frequency || "N/A"}
                             </p>
                           </div>
                           <div>
-                            <Label className="text-sm font-medium text-gray-700">Subscription Status</Label>
+                            <Label className="text-sm font-medium text-gray-700">
+                              Subscription Status
+                            </Label>
                             <div className="mt-1">
                               <Badge
                                 variant={
-                                  payment.subscription_details?.status === "active"
+                                  payment.subscription_details?.status ===
+                                  "active"
                                     ? "default"
                                     : "secondary"
                                 }
                                 className={
-                                  payment.subscription_details?.status === "active"
+                                  payment.subscription_details?.status ===
+                                  "active"
                                     ? "bg-green-500"
                                     : "bg-gray-500"
                                 }
@@ -387,13 +453,17 @@ export default function Billing() {
 
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label className="text-sm font-medium text-gray-700">Amount</Label>
+                            <Label className="text-sm font-medium text-gray-700">
+                              Amount
+                            </Label>
                             <p className="text-sm mt-1 font-bold text-green-600">
                               ${parseFloat(payment.amount || "0").toFixed(2)}
                             </p>
                           </div>
                           <div>
-                            <Label className="text-sm font-medium text-gray-700">Payment Status</Label>
+                            <Label className="text-sm font-medium text-gray-700">
+                              Payment Status
+                            </Label>
                             <div className="mt-1">
                               <Badge
                                 variant={
@@ -412,7 +482,9 @@ export default function Billing() {
                                 }
                               >
                                 {payment.payment_status
-                                  ? payment.payment_status.charAt(0).toUpperCase() +
+                                  ? payment.payment_status
+                                      .charAt(0)
+                                      .toUpperCase() +
                                     payment.payment_status.slice(1)
                                   : "N/A"}
                               </Badge>
@@ -422,10 +494,14 @@ export default function Billing() {
 
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label className="text-sm font-medium text-gray-700">Payment Date</Label>
+                            <Label className="text-sm font-medium text-gray-700">
+                              Payment Date
+                            </Label>
                             <p className="text-sm mt-1 font-medium">
                               {payment.payment_date
-                                ? new Date(payment.payment_date).toLocaleDateString("en-US", {
+                                ? new Date(
+                                    payment.payment_date
+                                  ).toLocaleDateString("en-US", {
                                     year: "numeric",
                                     month: "long",
                                     day: "numeric",
@@ -436,7 +512,9 @@ export default function Billing() {
                             </p>
                           </div>
                           <div>
-                            <Label className="text-sm font-medium text-gray-700">Transaction ID</Label>
+                            <Label className="text-sm font-medium text-gray-700">
+                              Transaction ID
+                            </Label>
                             <p className="text-sm mt-1 font-mono bg-gray-100 px-2 py-1 rounded">
                               {payment.transaction_id || "N/A"}
                             </p>
@@ -446,13 +524,17 @@ export default function Billing() {
                         {payment.payment_method && (
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <Label className="text-sm font-medium text-gray-700">Payment Method</Label>
+                              <Label className="text-sm font-medium text-gray-700">
+                                Payment Method
+                              </Label>
                               <p className="text-sm mt-1 font-medium">
                                 {payment.payment_method}
                               </p>
                             </div>
                             <div>
-                              <Label className="text-sm font-medium text-gray-700">User ID</Label>
+                              <Label className="text-sm font-medium text-gray-700">
+                                User ID
+                              </Label>
                               <p className="text-sm mt-1 font-medium">
                                 {payment.user}
                               </p>
@@ -467,7 +549,9 @@ export default function Billing() {
                   <div className="pt-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label className="text-sm font-medium text-gray-700">Total Payments</Label>
+                        <Label className="text-sm font-medium text-gray-700">
+                          Total Payments
+                        </Label>
                         <p className="text-sm mt-1 font-bold">
                           {selectedPayment.total_count || 0}
                         </p>
@@ -478,26 +562,25 @@ export default function Billing() {
               ) : (
                 <div className="text-center text-muted-foreground py-8">
                   <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>No payment details available for this user</p>
+                  <p>No payment details available</p>
                 </div>
               )}
-
-              {/* Close Button */}
-              <div className="pt-4 border-t">
-                <Button
-                  variant="destructive"
-                  onClick={handleCloseDialog}
-                  className="w-full"
-                >
-                  Close
-                </Button>
-              </div>
             </div>
           ) : (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
           )}
+
+          <div className="pt-4 border-t">
+            <Button
+              variant="destructive"
+              onClick={handleCloseDialog}
+              className="w-full"
+            >
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -506,7 +589,9 @@ export default function Billing() {
         <CardHeader>
           <CardTitle>Invoices</CardTitle>
           <CardDescription>
-            View and manage invoices for all customers
+            {role === "business"
+              ? "View your invoices"
+              : "View and manage invoices for all customers"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -591,7 +676,7 @@ export default function Billing() {
             </TableBody>
           </Table>
         </CardContent>
-        </Card>
+      </Card>
     </div>
   );
 }

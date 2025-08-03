@@ -1,30 +1,17 @@
 import { Mail } from "lucide-react";
 import { useState, FormEvent, useEffect } from "react";
 import Swal from "sweetalert2";
-import qs from "qs";
 import { useUserStore } from "@/store/userStore";
 import { useAuthStore } from "@/store/auth";
 
 interface ContactForm {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  company: string;
-  location: string;
-  interested: string;
+  interests: string;
   message: string;
 }
 
 const ContactPage = () => {
   const [form, setForm] = useState<ContactForm>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    company: "",
-    location: "",
-    interested: "",
+    interests: "",
     message: "",
   });
 
@@ -38,51 +25,23 @@ const ContactPage = () => {
     }
   }, [accessToken, fetchUserProfile, user]);
 
-  // Pre-fill form when user data is available
-  useEffect(() => {
-    if (user) {
-      // Extract first and last name from user.name
-      const nameParts = user.name?.split(' ') || [];
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      setForm({
-        firstName,
-        lastName,
-        email: user.email || '',
-        phone: user.business_profile?.phone_number || '',
-        company: user.business_profile?.company_name || '',
-        location: '', // No direct mapping in user data
-        interested: '', // No direct mapping in user data
-        message: '', // Leave empty
-      });
-    }
-  }, [user]);
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
 
     try {
       const payload = {
-        first_name: form.firstName,
-        last_name: form.lastName,
-        business_email: form.email,
-        phone: form.phone,
-        company_name: form.company,
-        company_location: form.location,
-        interests: form.interested,
+        interests: form.interests,
         message: form.message,
       };
 
-      const query = qs.stringify({ type: "talk" });
-
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/articles/send-email/?${query}`,
+        `${import.meta.env.VITE_API_URL}/api/articles/contact-admin/?type=contact_admin`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`
           },
           body: JSON.stringify(payload),
         }
@@ -100,11 +59,11 @@ const ContactPage = () => {
         confirmButtonText: "OK",
       });
 
-      // Don't reset the form completely, just the message field
-      setForm(prev => ({
-        ...prev,
+      // Reset form after successful submission
+      setForm({
+        interests: "",
         message: "",
-      }));
+      });
     } catch (error) {
       Swal.fire({
         title: "Submission Failed",
@@ -119,7 +78,7 @@ const ContactPage = () => {
   };
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { id, value } = e.target;
     setForm((prev) => ({
@@ -146,7 +105,7 @@ const ContactPage = () => {
 
   return (
     <section className="w-full bg-white flex items-center justify-center min-h-screen">
-      <div className="w-full max-w-6xl mx-auto grid md:grid-cols-2 gap-8">
+      <div className="w-full mx-auto grid md:grid-cols-2 gap-8">
         {/* Left Side */}
         <div className="flex flex-col">
           {/* Top: Hero */}
@@ -158,7 +117,7 @@ const ContactPage = () => {
               Get in Touch with <span className="text-primary">Our Admin</span>
             </h1>
             <p className="text-[#eaf6e5] text-lg leading-relaxed">
-              We'd love to learn more about your company and how we can assist
+              We'd love to learn more about your interests and how we can assist
               you. Fill out the form to tell us more, and we'll get back to you.
             </p>
           </div>
@@ -198,164 +157,61 @@ const ContactPage = () => {
         </div>
 
         {/* Right Side: Form */}
-        <form
-          className="rounded-2xl bg-white border border-[#d8e3c7] px-10 py-8 flex flex-col justify-between"
+        <div
+          className="rounded-2xl bg-white border border-[#d8e3c7] px-10 py-8 flex flex-col justify-start"
           style={{ minHeight: 640 }}
-          onSubmit={handleSubmit}
         >
-          <div className="grid grid-cols-2 gap-6 mb-5">
-            <div>
-              <label
-                className="block text-[#1a3323] font-medium mb-2"
-                htmlFor="firstName"
-              >
-                First name<span className="text-[#ef4444]">*</span>
-              </label>
-              <input
-                required
-                id="firstName"
-                className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-2 text-base outline-none focus:ring-2 focus:ring-primary transition"
-                value={form.firstName}
-                onChange={handleInputChange}
-              />
-            </div>
-            <div>
-              <label
-                className="block text-[#1a3323] font-medium mb-2"
-                htmlFor="lastName"
-              >
-                Last name<span className="text-[#ef4444]">*</span>
-              </label>
-              <input
-                required
-                id="lastName"
-                className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-2 text-base outline-none focus:ring-2 focus:ring-primary transition"
-                value={form.lastName}
-                onChange={handleInputChange}
-              />
-            </div>
-          </div>
-
-          <div className="mb-5">
+          {/* Interests field */}
+          <div className="mb-6">
             <label
               className="block text-[#1a3323] font-medium mb-2"
-              htmlFor="email"
+              htmlFor="interests"
             >
-              Business email<span className="text-[#ef4444]">*</span>
+              What are you interested in? <span className="text-[#ef4444]">*</span>
             </label>
-            <input
+            <textarea
               required
-              id="email"
-              type="email"
-              className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-2 text-base outline-none focus:ring-2 focus:ring-primary transition"
-              value={form.email}
+              id="interests"
+              rows={6}
+              className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary transition resize-none"
+              value={form.interests}
               onChange={handleInputChange}
+              placeholder="e.g., We are interested in carbon footprint tracking for our logistics operations and want to integrate emission calculations into our supply chain management system."
+              style={{ minHeight: 160 }}
             />
           </div>
 
-          <div className="mb-5">
-            <label
-              className="block text-[#1a3323] font-medium mb-2"
-              htmlFor="phone"
-            >
-              Phone<span className="text-[#ef4444]">*</span>
-            </label>
-            <input
-              required
-              id="phone"
-              className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-2 text-base outline-none focus:ring-2 focus:ring-primary transition"
-              value={form.phone}
-              onChange={handleInputChange}
-            />
-          </div>
-
-          <div className="mb-5">
-            <label
-              className="block text-[#1a3323] font-medium mb-2"
-              htmlFor="company"
-            >
-              Company Name
-            </label>
-            <input
-              id="company"
-              className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-2 text-base outline-none focus:ring-2 focus:ring-primary transition"
-              value={form.company}
-              onChange={handleInputChange}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-6 mb-5">
-            <div>
-              <label
-                className="block text-[#1a3323] font-medium mb-2"
-                htmlFor="location"
-              >
-                Company Location?
-              </label>
-              <select
-                id="location"
-                className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-2 text-base text-[#6d7c6e] outline-none focus:ring-2 focus:ring-primary transition"
-                value={form.location}
-                onChange={handleInputChange}
-              >
-                <option value="">Please Select</option>
-                <option value="us">United States</option>
-                <option value="eu">Europe</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-            <div>
-              <label
-                className="block text-[#1a3323] font-medium mb-2"
-                htmlFor="interested"
-              >
-                I'm facing problem in
-              </label>
-              <select
-                required
-                id="interested"
-                className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-2 text-base text-[#6d7c6e] outline-none focus:ring-2 focus:ring-primary transition"
-                value={form.interested}
-                onChange={handleInputChange}
-              >
-                <option value="">Please Select</option>
-                <option value="offsetting">Offsetting</option>
-                <option value="api">API Integration</option>
-                <option value="projects">Project Listing</option>
-                <option value="support">Support</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Message textarea */}
-          <div className="mb-5">
+          {/* Message field */}
+          <div className="mb-6">
             <label
               className="block text-[#1a3323] font-medium mb-2"
               htmlFor="message"
             >
-              Message
+              Additional Message <span className="text-[#ef4444]">*</span>
             </label>
             <textarea
               required
               id="message"
-              rows={5}
-              className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-2 text-base outline-none focus:ring-2 focus:ring-primary transition resize-none"
+              rows={6}
+              className="block w-full rounded-md border border-[#d8e3c7] bg-[#f4f7ec] px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary transition resize-none"
               value={form.message}
               onChange={handleInputChange}
-              placeholder="How can we help you?"
-              style={{ minHeight: 120 }}
+              placeholder="e.g., We would like to schedule a demo next week. Please contact us at your earliest convenience."
+              style={{ minHeight: 160 }}
             />
           </div>
 
           {/* Submit button */}
           <button
             type="submit"
-            className="rounded-lg bg-primary hover:bg-primary/90 text-white font-bold justify-center text-base flex items-center gap-2 shadow-lg px-8 py-3 transition mt-1 disabled:opacity-70"
+            onClick={handleSubmit}
+            className="rounded-lg bg-primary hover:bg-primary/90 text-white font-bold justify-center text-base flex items-center gap-2 shadow-lg px-8 py-3 transition disabled:opacity-70"
             disabled={submitting}
           >
-            {submitting ? "Submitting..." : "Submit"}
+            <Mail className="w-4 h-4" />
+            {submitting ? "Submitting..." : "Send Message"}
           </button>
-        </form>
+        </div>
       </div>
     </section>
   );

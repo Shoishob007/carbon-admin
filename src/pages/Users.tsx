@@ -31,6 +31,7 @@ import {
   ChevronsRight,
   ChevronsLeft,
   ChevronLeft,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -56,10 +57,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Label } from "@/components/ui/label";
 
 export default function Users() {
   const accessToken = useAuthStore((state) => state.accessToken);
-  const { apiUsers, loading, fetchUsers } = useUsersStore();
+  const { apiUsers, loading, fetchUsers, createUser } = useUsersStore();
+  console.log("Api users :: ", apiUsers)
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState("All Users");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
@@ -67,6 +70,15 @@ export default function Users() {
   // pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [newUser, setNewUser] = useState({
+    email: "",
+    name: "",
+    role: "individual" as "individual" | "business",
+    password: "",
+  });
 
   useEffect(() => {
     fetchUsers(accessToken);
@@ -124,6 +136,33 @@ export default function Users() {
   );
   const totalOffsets = mockUsers.reduce((sum, user) => sum + user.offsets, 0);
 
+  const handleCreateUser = async () => {
+    if (!newUser.email || !newUser.name || !newUser.password) {
+      setCreateError("Please fill in all required fields");
+      return;
+    }
+
+    setIsCreating(true);
+    setCreateError(null);
+    
+    try {
+      await createUser(accessToken, newUser);
+      setIsDialogOpen(false);
+      setNewUser({
+        email: "",
+        name: "",
+        role: "individual",
+        password: "",
+      });
+    } catch (error) {
+      setCreateError(
+        error instanceof Error ? error.message : "Failed to create user"
+      );
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   // page reset
   const resetPagination = () => {
     setCurrentPage(1);
@@ -176,23 +215,108 @@ export default function Users() {
             Manage user accounts, permissions, and carbon tracking data
           </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-carbon-gradient hover:bg-carbon-600">
-              <Plus className="mr-2 h-4 w-4" />
-              Add User
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogTrigger asChild>
+          <Button className="bg-carbon-gradient hover:bg-carbon-600">
+            <Plus className="mr-2 h-4 w-4" />
+            Add User
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[600px] bg-background border">
+          <DialogHeader className="text-center">
+            <DialogTitle>Add New User</DialogTitle>
+            <DialogDescription>
+              Create a new user account for carbon tracking platform
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email*</Label>
+              <Input
+                id="email"
+                type="email"
+                value={newUser.email}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, email: e.target.value })
+                }
+                placeholder="user@example.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name*</Label>
+              <Input
+                id="name"
+                value={newUser.name}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, name: e.target.value })
+                }
+                placeholder="John Doe"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Role*</Label>
+              <Select
+                value={newUser.role}
+                onValueChange={(value: "individual" | "business") =>
+                  setNewUser({ ...newUser, role: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="individual">Individual</SelectItem>
+                  <SelectItem value="business">Business</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password*</Label>
+              <Input
+                id="password"
+                type="password"
+                value={newUser.password}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, password: e.target.value })
+                }
+                placeholder="Set a password"
+              />
+            </div>
+
+            {createError && (
+              <div className="text-red-500 text-sm">{createError}</div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsDialogOpen(false)}
+              disabled={isCreating}
+            >
+              Cancel
             </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] bg-background border">
-            <DialogHeader className="text-center">
-              <DialogTitle>Add New User</DialogTitle>
-              <DialogDescription>
-                Create a new user account for carbon tracking platform
-              </DialogDescription>
-            </DialogHeader>
-            {/* Add User Form */}
-          </DialogContent>
-        </Dialog>
+            <Button
+              onClick={handleCreateUser}
+              disabled={isCreating}
+              className="bg-carbon-gradient hover:bg-carbon-600"
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create User"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
 
       {/* Statistics Cards */}

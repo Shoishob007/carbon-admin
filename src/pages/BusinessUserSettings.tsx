@@ -167,7 +167,7 @@ export default function BusinessUserSettings() {
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
+    <div className="space-y-8 mx-auto">
       <div className="space-y-2">
         <h1 className="text-3xl font-bold">Business Profile</h1>
         <p className="text-muted-foreground">

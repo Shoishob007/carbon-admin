@@ -17,6 +17,7 @@ import Pricing from "./pages/Pricing";
 import SettingsPage from "./app/(dashboard)/settings/page";
 import BlogDetails from "./pages/BlogDetails";
 import ContactPage from "./pages/ContactPage";
+import TermsAndConditions from "./pages/Terms";
 
 // route objects
 export interface AppRoute {
@@ -117,6 +118,12 @@ export const routes: AppRoute[] = [
     component: Queries,
     layout: "dashboard",
     roles: ["super_admin"],
+  },
+    {
+    path: "/terms",
+    component: TermsAndConditions,
+    layout: "dashboard",
+    roles: ["super_admin", "business", "individual"],
   },
   { path: "/login", component: Login },
   { path: "/register", component: Register },

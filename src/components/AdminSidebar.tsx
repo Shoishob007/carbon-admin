@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   DollarSign as DollarSignIcon,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -107,7 +108,7 @@ const baseMenuItems: MenuItem[] = [
     {
     title: "Contact Admin",
     url: "/contact",
-    icon: Globe,
+    icon: Mail,
     roles: ["business"],
     hasSubItems: false,
   },
