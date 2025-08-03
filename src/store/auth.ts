@@ -21,7 +21,7 @@ interface AuthState {
   user: UserProfile | null;
   accessToken: string | null;
   refreshToken: string | null;
-  profile_update : boolean,
+  profile_update: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
@@ -58,7 +58,7 @@ export const useAuthStore = create<AuthState>()(
               email: data.user.email,
               name: data.user.name,
               role: data.user.role,
-              profile_update : data.user.profile_update,
+              profile_update: data.user.profile_update,
               id:
                 data.user.id ?? data.user.user_id ?? data.user.profile?.id ?? 0,
               profile_image: data.user.profile_image,

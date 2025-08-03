@@ -104,6 +104,13 @@ const baseMenuItems: MenuItem[] = [
     roles: ["super_admin"],
     hasSubItems: false,
   },
+    {
+    title: "Contact Admin",
+    url: "/contact",
+    icon: Globe,
+    roles: ["business"],
+    hasSubItems: false,
+  },
   {
     title: "Offset Projects",
     url: "/offset-projects",

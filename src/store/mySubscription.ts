@@ -233,34 +233,37 @@ export const useMySubscriptionStore = create<MySubscriptionState>(
       }
     },
 
-unsubscribeFromPlan: async (accessToken) => {
-  set({ loading: true, error: null });
-  try {
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/subscription/my-subscription/unsubscribe/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
+    unsubscribeFromPlan: async (accessToken) => {
+      set({ loading: true, error: null });
+      try {
+        const response = await fetch(
+          `${
+            import.meta.env.VITE_API_URL
+          }/api/subscription/my-subscription/unsubscribe/`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to unsubscribe");
+        }
+
+        // Clear the current subscription instead of trying to fetch it
+        set({ subscription: null, loading: false });
+      } catch (error) {
+        set({
+          error:
+            error instanceof Error ? error.message : "Failed to unsubscribe",
+          loading: false,
+        });
+        throw error;
       }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || "Failed to unsubscribe");
-    }
-
-    // Clear the current subscription instead of trying to fetch it
-    set({ subscription: null, loading: false });
-  } catch (error) {
-    set({
-      error: error instanceof Error ? error.message : "Failed to unsubscribe",
-      loading: false,
-    });
-    throw error;
-  }
-},
+    },
   })
 );

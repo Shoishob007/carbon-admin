@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
 
 interface Profile {
   emission_lab_key: string;
@@ -27,14 +27,14 @@ interface BusinessProfile {
 interface User {
   email: string;
   name: string;
-  role: 'business' | 'super_admin' | 'individual';
+  role: "business" | "super_admin" | "individual";
   organization: string | null;
   profile_image: string | null;
   bio: string | null;
   is_active: boolean;
   profile: Profile;
   business_profile: BusinessProfile | null;
-  profile_update : boolean
+  profile_update: boolean;
 }
 
 interface UserState {
@@ -42,7 +42,10 @@ interface UserState {
   loading: boolean;
   error: string | null;
   fetchUserProfile: (accessToken: string) => Promise<void>;
-  updateUserProfile: (accessToken: string, data: Partial<User>) => Promise<void>;
+  updateUserProfile: (
+    accessToken: string,
+    data: Partial<User>
+  ) => Promise<void>;
   updateBusinessProfile: (
     accessToken: string,
     data: Partial<BusinessProfile>
@@ -59,21 +62,24 @@ export const useUserStore = create<UserState>()(
     fetchUserProfile: async (accessToken) => {
       set({ loading: true, error: null });
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile/`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/users/profile/`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
+        );
         if (!res.ok) {
           const errorData = await res.json();
-          throw new Error(errorData.message || 'Failed to fetch profile');
+          throw new Error(errorData.message || "Failed to fetch profile");
         }
         const data = await res.json();
         set({ user: data, loading: false });
       } catch (error: any) {
         set({
           error:
-            typeof error === 'string'
+            typeof error === "string"
               ? error
-              : error?.message || 'Failed to fetch profile',
+              : error?.message || "Failed to fetch profile",
           loading: false,
         });
       }
@@ -82,17 +88,20 @@ export const useUserStore = create<UserState>()(
     updateUserProfile: async (accessToken, data) => {
       set({ loading: true, error: null });
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile/`, {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        });
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/users/profile/`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(data),
+          }
+        );
         if (!res.ok) {
           const errorData = await res.json();
-          throw new Error(errorData.message || 'Failed to update profile');
+          throw new Error(errorData.message || "Failed to update profile");
         }
         const responseData = await res.json();
         set((state) => {
@@ -103,9 +112,9 @@ export const useUserStore = create<UserState>()(
       } catch (error: any) {
         set({
           error:
-            typeof error === 'string'
+            typeof error === "string"
               ? error
-              : error?.message || 'Failed to update profile',
+              : error?.message || "Failed to update profile",
           loading: false,
         });
         throw error;
@@ -114,60 +123,71 @@ export const useUserStore = create<UserState>()(
       }
     },
 
-updateBusinessProfile: async (accessToken, data) => {
-  set({ loading: true, error: null });
-  try {
-    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile/`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        business_profile: data
-      }),
-    });
-    
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.message || 'Failed to update business profile');
-    }
-    
-    const responseData = await res.json();
-    set((state) => ({
-      user: {
-        ...state.user,
-        business_profile: {
-          ...state.user?.business_profile,
-          ...responseData.business_profile
+    updateBusinessProfile: async (accessToken, data) => {
+      set({ loading: true, error: null });
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/users/profile/`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              business_profile: data,
+            }),
+          }
+        );
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(
+            errorData.message || "Failed to update business profile"
+          );
         }
+
+        const responseData = await res.json();
+        set((state) => ({
+          user: {
+            ...state.user,
+            business_profile: {
+              ...state.user?.business_profile,
+              ...responseData.business_profile,
+            },
+          },
+        }));
+        return responseData;
+      } catch (error: any) {
+        set({
+          error:
+            typeof error === "string"
+              ? error
+              : error?.message || "Failed to update business profile",
+          loading: false,
+        });
+        throw error;
+      } finally {
+        set({ loading: false });
       }
-    }));
-    return responseData;
-  } catch (error: any) {
-    set({
-      error: typeof error === 'string' ? error : error?.message || 'Failed to update business profile',
-      loading: false,
-    });
-    throw error;
-  } finally {
-    set({ loading: false });
-  }
-},
+    },
 
     regenerateApiKey: async (accessToken) => {
       set({ loading: true, error: null });
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/profile/generate-key/`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: null, // No body needed for empty post
-        });
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/users/profile/generate-key/`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: null, // No body needed for empty post
+          }
+        );
         if (!res.ok) {
           const errorData = await res.json();
-          throw new Error(errorData.message || 'Failed to regenerate API key');
+          throw new Error(errorData.message || "Failed to regenerate API key");
         }
         const data = await res.json();
         set((state) => {
@@ -179,9 +199,9 @@ updateBusinessProfile: async (accessToken, data) => {
       } catch (error: any) {
         set({
           error:
-            typeof error === 'string'
+            typeof error === "string"
               ? error
-              : error?.message || 'Failed to regenerate API key',
+              : error?.message || "Failed to regenerate API key",
           loading: false,
         });
         throw error;

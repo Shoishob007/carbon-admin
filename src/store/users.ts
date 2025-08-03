@@ -53,7 +53,10 @@ export const useUsersStore = create<UsersState>()(
           const data = await response.json();
           set({ apiUsers: data.users });
         } catch (error) {
-          set({ error: error instanceof Error ? error.message : "Failed to fetch users" });
+          set({
+            error:
+              error instanceof Error ? error.message : "Failed to fetch users",
+          });
         } finally {
           set({ loading: false });
         }

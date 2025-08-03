@@ -24,7 +24,7 @@ interface SubscriptionState {
   loading: boolean;
   error: string | null;
   fetchPlans: (accessToken: string) => Promise<void>;
-    fetchPublicPlans: () => Promise<void>;
+  fetchPublicPlans: () => Promise<void>;
 
   createPlan: (
     accessToken: string,
@@ -135,7 +135,10 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           set({ activePlans: plans, inactivePlans: [] });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to fetch public plans",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to fetch public plans",
           });
         } finally {
           set({ loading: false });
