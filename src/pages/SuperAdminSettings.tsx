@@ -157,7 +157,7 @@ export default function SuperAdminSettings() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            {/* <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Lock className="h-5 w-5 text-primary" />
                 Change Password
@@ -206,7 +206,7 @@ export default function SuperAdminSettings() {
                   />
                 </div>
               </div>
-            </div>
+            </div> */}
 
             <Button
               onClick={handleSaveProfile}
