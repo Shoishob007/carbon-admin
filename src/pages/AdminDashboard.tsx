@@ -18,6 +18,12 @@ import {
   Users,
   DollarSign,
   BarChart3,
+  UsersIcon,
+  CreditCard,
+  MessageSquare,
+  Clock,
+  User,
+  Mail,
 } from "lucide-react";
 import {
   LineChart,
@@ -33,6 +39,11 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { useUsersStore } from "@/store/users";
+import { useSubscriptionStore } from "@/store/subscriptions";
+import { useBillingStore } from "@/store/billingStore";
+import { useQueriesStore } from "@/store/queriesStore";
+import { useMemo } from "react";
 
 const emissionData = [
   { month: "Jan", emissions: 2400, offset: 2000 },
@@ -50,24 +61,107 @@ const offsetProjects = [
   { name: "Waste Management", value: 15, color: "#22c55e" },
 ];
 
-const userGrowth = [
-  { month: "Jan", users: 120 },
-  { month: "Feb", users: 150 },
-  { month: "Mar", users: 180 },
-  { month: "Apr", users: 220 },
-  { month: "May", users: 280 },
-  { month: "Jun", users: 340 },
-];
-
 export default function AdminDashboard() {
-  console.log("this is super admin dash")
   const user = useAuthStore((s) => s.user);
+  const { apiUsers } = useUsersStore();
+  const { activePlans, inactivePlans } = useSubscriptionStore();
+  const { payments } = useBillingStore();
+  const { queries } = useQueriesStore();
+  const role = useAuthStore((state) => state.user?.role);
+
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
+
+  // Generate dynamic user growth data for all 12 months
+  const userGrowthData = useMemo(() => {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
+    
+    // Create data for all 12 months of current year
+    const allMonthsData = Array.from({ length: 12 }, (_, i) => {
+      const monthIndex = (currentMonth - 11 + i + 12) % 12; // Ensure we get last 12 months
+      const monthName = `${monthNames[monthIndex]} ${currentYear.toString().slice(-2)}`;
+      return {
+        month: monthName,
+        users: 0,
+        date: new Date(currentYear, monthIndex, 1)
+      };
+    });
+
+    // Count users per month
+    apiUsers.forEach(user => {
+      if (user.profile?.created_at) {
+        const date = new Date(user.profile.created_at);
+        const monthIndex = date.getMonth();
+        const year = date.getFullYear();
+        
+        // Only count if it's current year
+        if (year === currentYear) {
+          const monthData = allMonthsData.find(m => 
+            m.date.getMonth() === monthIndex && m.date.getFullYear() === year
+          );
+          if (monthData) {
+            monthData.users += 1;
+          }
+        }
+      }
+    });
+
+    // Calculate cumulative users
+    let cumulative = 0;
+    return allMonthsData.map(item => {
+      cumulative += item.users;
+      return {
+        month: item.month,
+        users: cumulative
+      };
+    });
+  }, [apiUsers]);
+
+  const allPlans = [...activePlans, ...inactivePlans];
+  const activeSubscribers = allPlans.reduce(
+    (sum, plan) => sum + (plan.is_active ? 1 : 0),
+    0
+  );
+  const totalRevenue = payments
+    .filter((p) => p.payment_status === "completed")
+    .reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
+
+  const totalCustomers = role === "business" ? 1 : payments.length;
+  const activeCustomers =
+    role === "business"
+      ? payments.some((p) => p.subscription_details?.status === "active")
+        ? 1
+        : 0
+      : payments.filter((p) => p.subscription_details?.status === "active")
+          .length;
+
+  // Helper function to truncate text
+  const truncateText = (text, maxLength = 200) => {
+    if (!text) return "";
+    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text;
+  };
+
+  // Helper function to get status badge color
+  const getStatusBadgeColor = (status) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-500";
+      case "in_progress":
+        return "bg-blue-500";
+      case "completed":
+        return "bg-green-500";
+      case "cancelled":
+        return "bg-red-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -92,65 +186,67 @@ export default function AdminDashboard() {
 
       {/* Key Metrics */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total CO₂ Offset
-            </CardTitle>
-            <Leaf className="h-4 w-4 text-carbon-600" />
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <UsersIcon className="h-4 w-4 text-carbon-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-carbon-700">2,847 tons</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingUp className="mr-1 h-3 w-3 text-carbon-500" />
-              +12.3% from last month
+            <div className="text-2xl font-bold text-carbon-700">
+              {apiUsers.length}
             </div>
+            <p className="text-xs text-muted-foreground">
+              {apiUsers.filter((user) => user.is_active).length} active users
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Active Emissions
-            </CardTitle>
-            <Factory className="h-4 w-4 text-orange-600" />
+            <CardTitle className="text-sm font-medium">Total Plans</CardTitle>
+            <CreditCard className="h-4 w-4 text-carbon-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-700">1,234 tons</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingDown className="mr-1 h-3 w-3 text-green-500" />
-              -8.2% from last month
+            <div className="text-2xl font-bold text-carbon-700">
+              {allPlans.length}
             </div>
+            <p className="text-xs text-muted-foreground">
+              {activePlans.length} active
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Registered Users
+              {role === "business" ? "My Plan" : "Business Customers"}
             </CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
+            <Users className="h-4 w-4 text-carbon-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-700">3,456</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-              +23.1% from last month
+            <div className="text-2xl font-bold text-carbon-700">
+              {totalCustomers}
             </div>
+            <p className="text-xs text-muted-foreground">
+              {activeCustomers} active
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-shadow">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Monthly Revenue
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-700">$45,231</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-              +19.7% from last month
+            <div className="text-2xl font-bold text-green-700">
+              ${totalRevenue.toLocaleString()}
             </div>
+            <p className="text-xs text-muted-foreground">
+              +{(totalRevenue * 0.1).toFixed(1)}% from last month
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -226,139 +322,84 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Recent Activity & User Growth */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>User Growth</CardTitle>
-            <CardDescription>Monthly user registration trends</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={userGrowth}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="users" fill="#22c55e" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Frequently used admin actions</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Carbon Credit Verification</span>
-                <Badge variant="secondary">Pending: 12</Badge>
-              </div>
-              <Progress value={75} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Monthly Reports</span>
-                <Badge variant="secondary">Due: 3</Badge>
-              </div>
-              <Progress value={60} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>User Approvals</span>
-                <Badge variant="secondary">Queue: 8</Badge>
-              </div>
-              <Progress value={40} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>System Health</span>
-                <Badge className="bg-carbon-500">Good</Badge>
-              </div>
-              <Progress value={95} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activities */}
+      {/* User Growth Chart - Full Width */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activities</CardTitle>
-          <CardDescription>
-            Latest actions and updates across the platform
-          </CardDescription>
+          <CardTitle>User Growth</CardTitle>
+          <CardDescription>Cumulative user registration trends for all 12 months</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {[
-              {
-                action: "Carbon Credit Purchase",
-                user: "EcoTech Corporation",
-                amount: "500 credits",
-                time: "2 hours ago",
-                type: "purchase",
-              },
-              {
-                action: "Emission Report Submitted",
-                user: "GreenManufacturing Ltd",
-                amount: "Monthly Report",
-                time: "4 hours ago",
-                type: "report",
-              },
-              {
-                action: "New User Registration",
-                user: "Sustainable Solutions Inc",
-                amount: "Premium Plan",
-                time: "6 hours ago",
-                type: "registration",
-              },
-              {
-                action: "Offset Project Completed",
-                user: "Amazon Rainforest Initiative",
-                amount: "1,200 tons CO₂",
-                time: "1 day ago",
-                type: "offset",
-              },
-            ].map((activity, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between py-3 border-b last:border-b-0"
-              >
-                <div className="flex items-center space-x-3">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      activity.type === "purchase"
-                        ? "bg-blue-500"
-                        : activity.type === "report"
-                        ? "bg-yellow-500"
-                        : activity.type === "registration"
-                        ? "bg-green-500"
-                        : "bg-carbon-500"
-                    }`}
-                  />
-                  <div>
-                    <div className="font-medium">{activity.action}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {activity.user}
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={userGrowthData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="users" fill="#22c55e" />
+            </BarChart>
+          </ResponsiveContainer>
+          {userGrowthData.length === 0 && (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+              No user registration data available
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent Queries - Full Width */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-4 w-4 text-carbon-600" />
+            Recent Queries
+          </CardTitle>
+          <CardDescription>Latest customer inquiries and support requests</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {queries.length === 0 ? (
+            <div className="text-center text-muted-foreground py-4">
+              No queries available
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {queries.slice(0, 6).map((query) => (
+                <div key={query.id} className="space-y-2 p-3 border rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <User className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-sm font-medium">{query.user_name}</span>
                     </div>
+                    <Badge 
+                      variant="secondary" 
+                      className={`text-xs ${getStatusBadgeColor(query.status)}`}
+                    >
+                      {query.status}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Mail className="h-3 w-3" />
+                    {query.user_email}
+                  </div>
+
+                  <div className="text-sm">
+                    <p className="font-medium text-muted-foreground mb-1">Interests:</p>
+                    <p className="text-xs">{truncateText(query.interests, 100)}</p>
+                  </div>
+
+                  <div className="text-sm">
+                    <p className="font-medium text-muted-foreground mb-1">Message:</p>
+                    <p className="text-xs">{truncateText(query.message, 150)}</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    {new Date(query.created_at).toLocaleDateString()}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-medium">{activity.amount}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {activity.time}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

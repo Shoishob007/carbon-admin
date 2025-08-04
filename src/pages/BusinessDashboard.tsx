@@ -91,7 +91,7 @@ export default function AdminDashboard() {
             <div className="text-2xl font-bold text-blue-600">
               {user?.profile?.api_requests_made || 0}
             </div>
-            <div className="flex items-center text-xs text-muted-foreground">
+            <div className="flex flex-col gap-2 text-xs text-muted-foreground">
               {user?.profile?.total_requests_limit ? (
                 <>
                   <Progress

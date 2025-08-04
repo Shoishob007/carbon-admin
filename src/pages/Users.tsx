@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable prefer-const */
 "use client";
 
@@ -15,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Users as UsersIcon,
   Plus,
@@ -58,10 +60,50 @@ import {
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  role: "individual" | "business" | "super_admin";
+  is_active: boolean;
+  profile_image: string | null;
+  bio?: string;
+  profile: {
+    api_requests_made: number;
+    total_requests_limit: number;
+  };
+  business_profile: {
+    company_name: string;
+    industry?: string;
+    company_size?: string;
+    website?: string;
+    company_address?: string;
+    phone_number?: string;
+    contact_person?: string;
+    annual_revenue?: string;
+    company_registration_number?: string;
+  } | null;
+  subscription: {
+    plan_name: string;
+    status: string;
+  } | null;
+}
 
 export default function Users() {
   const accessToken = useAuthStore((state) => state.accessToken);
-  const { apiUsers, loading, fetchUsers, createUser } = useUsersStore();
+  const { apiUsers, loading, fetchUsers, createUser, updateUser, updateUserStatus } = useUsersStore();
   console.log("Api users :: ", apiUsers)
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState("All Users");
@@ -79,6 +121,30 @@ export default function Users() {
     role: "individual" as "individual" | "business",
     password: "",
   });
+
+  // Edit user states
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [editUser, setEditUser] = useState({
+    name: "",
+    bio: "",
+    business_profile: {
+      company_name: "",
+      industry: "",
+      company_size: "",
+      website: "",
+      company_address: "",
+      phone_number: "",
+      contact_person: "",
+      annual_revenue: "",
+      company_registration_number: "",
+    }
+  });
+
+  // Delete user states
+  const [isDeletingUser, setIsDeletingUser] = useState<number | null>(null);
 
   useEffect(() => {
     fetchUsers(accessToken);
@@ -160,6 +226,92 @@ export default function Users() {
       );
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  // Handle edit user
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setEditUser({
+      name: user.name || "",
+      bio: user.bio || "",
+      business_profile: {
+        company_name: user.business_profile?.company_name || "",
+        industry: user.business_profile?.industry || "",
+        company_size: user.business_profile?.company_size || "",
+        website: user.business_profile?.website || "",
+        company_address: user.business_profile?.company_address || "",
+        phone_number: user.business_profile?.phone_number || "",
+        contact_person: user.business_profile?.contact_person || "",
+        annual_revenue: user.business_profile?.annual_revenue || "",
+        company_registration_number: user.business_profile?.company_registration_number || "",
+      }
+    });
+    setIsEditDialogOpen(true);
+    setEditError(null);
+  };
+
+  // Check if edit form has changes
+  const hasEditChanges = useMemo(() => {
+    if (!selectedUser) return false;
+    
+    const hasNameChange = editUser.name !== (selectedUser.name || "");
+    const hasBioChange = editUser.bio !== (selectedUser.bio || "");
+    
+    const hasBusinessProfileChanges = selectedUser.role === "business" && (
+      editUser.business_profile.company_name !== (selectedUser.business_profile?.company_name || "") ||
+      editUser.business_profile.industry !== (selectedUser.business_profile?.industry || "") ||
+      editUser.business_profile.company_size !== (selectedUser.business_profile?.company_size || "") ||
+      editUser.business_profile.website !== (selectedUser.business_profile?.website || "") ||
+      editUser.business_profile.company_address !== (selectedUser.business_profile?.company_address || "") ||
+      editUser.business_profile.phone_number !== (selectedUser.business_profile?.phone_number || "") ||
+      editUser.business_profile.contact_person !== (selectedUser.business_profile?.contact_person || "") ||
+      editUser.business_profile.annual_revenue !== (selectedUser.business_profile?.annual_revenue || "") ||
+      editUser.business_profile.company_registration_number !== (selectedUser.business_profile?.company_registration_number || "")
+    );
+
+    return hasNameChange || hasBioChange || hasBusinessProfileChanges;
+  }, [selectedUser, editUser]);
+
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
+
+    setIsEditing(true);
+    setEditError(null);
+    
+    try {
+      const updateData: any = {
+        name: editUser.name,
+        bio: editUser.bio,
+      };
+
+      // Only include business_profile if user is a business
+      if (selectedUser.role === "business") {
+        updateData.business_profile = editUser.business_profile;
+      }
+
+      await updateUser(accessToken, selectedUser.id, updateData);
+      setIsEditDialogOpen(false);
+      setSelectedUser(null);
+    } catch (error) {
+      setEditError(
+        error instanceof Error ? error.message : "Failed to update user"
+      );
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  // Handle delete user (update status)
+  const handleDeleteUser = async (userId: number) => {
+    setIsDeletingUser(userId);
+    
+    try {
+      await updateUserStatus(accessToken, userId, false);
+    } catch (error) {
+      console.error("Failed to deactivate user:", error);
+    } finally {
+      setIsDeletingUser(null);
     }
   };
 
@@ -318,6 +470,246 @@ export default function Users() {
         </DialogContent>
       </Dialog>
       </div>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] bg-background border max-h-[80vh] overflow-y-auto">
+          <DialogHeader className="text-center">
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information and business profile
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Full Name</Label>
+              <Input
+                id="edit-name"
+                value={editUser.name}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, name: e.target.value })
+                }
+                placeholder="John Doe"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-bio">Bio</Label>
+              <Textarea
+                id="edit-bio"
+                value={editUser.bio}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, bio: e.target.value })
+                }
+                placeholder="User bio..."
+                rows={3}
+              />
+            </div>
+
+            {selectedUser?.role === "business" && (
+              <>
+                <div className="border-t pt-4">
+                  <h4 className="text-lg font-semibold mb-4">Business Profile</h4>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-company-name">Company Name</Label>
+                      <Input
+                        id="edit-company-name"
+                        value={editUser.business_profile.company_name}
+                        onChange={(e) =>
+                          setEditUser({
+                            ...editUser,
+                            business_profile: {
+                              ...editUser.business_profile,
+                              company_name: e.target.value
+                            }
+                          })
+                        }
+                        placeholder="Company Name"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-industry">Industry</Label>
+                      <Input
+                        id="edit-industry"
+                        value={editUser.business_profile.industry}
+                        onChange={(e) =>
+                          setEditUser({
+                            ...editUser,
+                            business_profile: {
+                              ...editUser.business_profile,
+                              industry: e.target.value
+                            }
+                          })
+                        }
+                        placeholder="Technology"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-company-size">Company Size</Label>
+                      <Input
+                        id="edit-company-size"
+                        value={editUser.business_profile.company_size}
+                        onChange={(e) =>
+                          setEditUser({
+                            ...editUser,
+                            business_profile: {
+                              ...editUser.business_profile,
+                              company_size: e.target.value
+                            }
+                          })
+                        }
+                        placeholder="small, large"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-website">Website</Label>
+                      <Input
+                        id="edit-website"
+                        value={editUser.business_profile.website}
+                        onChange={(e) =>
+                          setEditUser({
+                            ...editUser,
+                            business_profile: {
+                              ...editUser.business_profile,
+                              website: e.target.value
+                            }
+                          })
+                        }
+                        placeholder="https://example.com"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-phone">Phone Number</Label>
+                      <Input
+                        id="edit-phone"
+                        value={editUser.business_profile.phone_number}
+                        onChange={(e) =>
+                          setEditUser({
+                            ...editUser,
+                            business_profile: {
+                              ...editUser.business_profile,
+                              phone_number: e.target.value
+                            }
+                          })
+                        }
+                        placeholder="+1-555-0123"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-contact-person">Contact Person</Label>
+                      <Input
+                        id="edit-contact-person"
+                        value={editUser.business_profile.contact_person}
+                        onChange={(e) =>
+                          setEditUser({
+                            ...editUser,
+                            business_profile: {
+                              ...editUser.business_profile,
+                              contact_person: e.target.value
+                            }
+                          })
+                        }
+                        placeholder="John Doe"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-annual-revenue">Annual Revenue</Label>
+                      <Input
+                        id="edit-annual-revenue"
+                        value={editUser.business_profile.annual_revenue}
+                        onChange={(e) =>
+                          setEditUser({
+                            ...editUser,
+                            business_profile: {
+                              ...editUser.business_profile,
+                              annual_revenue: e.target.value
+                            }
+                          })
+                        }
+                        placeholder="https://example.com"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-registration-number">Registration Number</Label>
+                      <Input
+                        id="edit-registration-number"
+                        value={editUser.business_profile.company_registration_number}
+                        onChange={(e) =>
+                          setEditUser({
+                            ...editUser,
+                            business_profile: {
+                              ...editUser.business_profile,
+                              company_registration_number: e.target.value
+                            }
+                          })
+                        }
+                        placeholder="REG123456"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mt-4">
+                    <Label htmlFor="edit-company-address">Company Address</Label>
+                    <Textarea
+                      id="edit-company-address"
+                      value={editUser.business_profile.company_address}
+                      onChange={(e) =>
+                        setEditUser({
+                          ...editUser,
+                          business_profile: {
+                            ...editUser.business_profile,
+                            company_address: e.target.value
+                          }
+                        })
+                      }
+                      placeholder="123 Business Street, City, State, ZIP"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {editError && (
+              <div className="text-red-500 text-sm">{editError}</div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              disabled={isEditing}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateUser}
+              disabled={isEditing || !hasEditChanges}
+              className="bg-carbon-gradient hover:bg-carbon-600"
+            >
+              {isEditing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Update User"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Statistics Cards */}
       <div className="grid gap-6 md:grid-cols-4">
@@ -601,17 +993,43 @@ export default function Users() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => console.log("Edit user:", user.id)}
+                          onClick={() => handleEditUser(user)}
+                          disabled={loading}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => console.log("Delete user:", user.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isDeletingUser === user.id || !user.is_active}
+                            >
+                              {isDeletingUser === user.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Deactivate User</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to deactivate {user.name}? This will set their status to inactive and they won't be able to access the platform.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                Deactivate
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>
