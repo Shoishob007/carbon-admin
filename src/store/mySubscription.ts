@@ -10,8 +10,8 @@ export interface SubscriptionPlanDetails {
   id: number;
   name: string;
   description: string;
-  monthly_price: number;
-  yearly_price: number;
+  monthly_price: any;
+  yearly_price: any;
   duration_in_days: number | null;
   features: string[];
   total_requests_limit: number;

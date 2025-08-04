@@ -61,6 +61,7 @@ export default function Subscriptions() {
     deletePlan,
     togglePlanStatus,
   } = useSubscriptionStore();
+  // console.log("activePlans :: ", activePlans)
 
   const [newPlan, setNewPlan] = useState({
     name: "",
@@ -69,7 +70,7 @@ export default function Subscriptions() {
     yearly_price: 0,
     duration_in_days: 30,
     features: [] as string[],
-    total_requests_limit: 1000,
+    total_requests_limit: 250,
     max_users: 1,
     max_guides: 5,
     max_tokens: 10000,
@@ -80,7 +81,7 @@ export default function Subscriptions() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (role === "business") {
+    if (role === "business" || role === "individual") {
       fetchPublicPlans();
     } else if (accessToken) {
       fetchPlans(accessToken);
@@ -104,7 +105,7 @@ export default function Subscriptions() {
         yearly_price: 0,
         duration_in_days: 30,
         features: [],
-        total_requests_limit: 1000,
+        total_requests_limit: 250,
         max_users: 1,
         max_guides: 5,
         max_tokens: 10000,

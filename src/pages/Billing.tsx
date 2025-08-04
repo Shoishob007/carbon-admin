@@ -241,7 +241,6 @@ export default function Billing() {
               <TableRow>
                 {role !== "business" && <TableHead>Customer</TableHead>}
                 <TableHead>Plan</TableHead>
-                <TableHead>Status</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Payment Date</TableHead>
                 <TableHead>Payment Status</TableHead>
@@ -264,27 +263,6 @@ export default function Billing() {
                     <div className="text-sm text-muted-foreground">
                       {payment.subscription_details?.payment_frequency || "N/A"}
                     </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        payment.subscription_details?.status === "active"
-                          ? "default"
-                          : "secondary"
-                      }
-                      className={
-                        payment.subscription_details?.status === "active"
-                          ? "bg-green-500"
-                          : "bg-gray-500"
-                      }
-                    >
-                      {payment.subscription_details?.status
-                        ? payment.subscription_details.status
-                            .charAt(0)
-                            .toUpperCase() +
-                          payment.subscription_details.status.slice(1)
-                        : "N/A"}
-                    </Badge>
                   </TableCell>
                   <TableCell>${payment.amount || "0.00"}</TableCell>
                   <TableCell>

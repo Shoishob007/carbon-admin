@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import {
   Loader2,
@@ -27,6 +29,7 @@ import {
   CreditCard,
   X,
   DollarSign,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -46,6 +49,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ProfileCompletePopup } from "@/components/ProfileCompletePopup";
+
+type ModalView = "details" | "payment";
 
 export default function MySubscription() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -74,6 +79,11 @@ export default function MySubscription() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [hasNoSubscription, setHasNoSubscription] = useState(false);
   const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null);
+
+  // Modal navigation state
+  const [modalView, setModalView] = useState<ModalView>("details");
+  const [transactionId, setTransactionId] = useState("");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
 
   useEffect(() => {
     if (!profile_update && !profileLoading) {
@@ -139,6 +149,7 @@ export default function MySubscription() {
 
       await fetchMySubscription(accessToken);
       setIsDialogOpen(false);
+      setModalView("details"); // Reset modal view
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -150,13 +161,73 @@ export default function MySubscription() {
     }
   };
 
+  const handlePaymentConfirmation = async () => {
+    if (!selectedPlan || !transactionId || !accessToken) return;
+
+    setPaymentProcessing(true);
+
+    try {
+      const price = billing === "yearly" 
+        ? Math.round(selectedPlan.yearly_price * 0.9 * 100) / 100
+        : selectedPlan.monthly_price;
+
+      // First verify payment
+      const paymentResponse = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/subscription/my-payments/create/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            amount: Number(price.toFixed(2)),
+            transaction_id: transactionId,
+          }),
+        }
+      );
+
+      if (!paymentResponse.ok) {
+        throw new Error("Payment verification failed");
+      }
+
+      // If payment successful, proceed with subscription
+      await handleSubscriptionAction(selectedPlan.id);
+
+      setTransactionId("");
+    } catch (error) {
+      console.error("Payment processing failed:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Payment verification failed"
+      );
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
   const openPlanDialog = (plan: (typeof activePlans)[0]) => {
     setSelectedPlan(plan);
     // Set billing frequency to current subscription frequency if changing plans
     if (subscription) {
       setBilling(subscription.payment_frequency);
     }
+    setModalView("details"); // Always start with details view
     setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setModalView("details");
+    setTransactionId("");
+  };
+
+  const proceedToPayment = () => {
+    setModalView("payment");
+  };
+
+  const goBackToDetails = () => {
+    setModalView("details");
+    setTransactionId("");
   };
 
   // Check if user is changing frequency or plan
@@ -187,6 +258,7 @@ export default function MySubscription() {
       await unsubscribeFromPlan(accessToken);
       toast.success("Successfully unsubscribed");
       setIsDialogOpen(false);
+      setModalView("details");
       setHasNoSubscription(true);
     } catch (error) {
       console.error("Unsubscribe failed:", error);
@@ -288,6 +360,13 @@ export default function MySubscription() {
       bgColor: "bg-orange-50",
     },
   ];
+
+  // Calculate price for selected plan
+  const selectedPlanPrice = selectedPlan ? (
+    billing === "yearly" 
+      ? Math.round(selectedPlan.yearly_price * 0.9 * 100) / 100
+      : selectedPlan.monthly_price
+  ) : 0;
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 px-4 py-6">
@@ -597,191 +676,301 @@ export default function MySubscription() {
         </div>
       </div>
 
-      {/* Plan Details Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      {/* Single Modal with Multiple Views */}
+      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
         <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto p-6">
           {selectedPlan && (
             <>
-              <DialogHeader className="space-y-3">
-                <DialogTitle className="text-2xl font-semibold">
-                  {selectedPlan.name}
-                </DialogTitle>
-                <DialogDescription className="text-sm">
-                  {selectedPlan.description}
-                </DialogDescription>
-              </DialogHeader>
+              {modalView === "details" ? (
+                // Plan Details View
+                <>
+                  <DialogHeader className="space-y-3">
+                    <DialogTitle className="text-2xl font-semibold">
+                      {selectedPlan.name}
+                    </DialogTitle>
+                    <DialogDescription className="text-sm">
+                      {selectedPlan.description}
+                    </DialogDescription>
+                  </DialogHeader>
 
-              <div className="space-y-6">
-                {/* Pricing Section */}
-                <div className="bg-muted/30 p-4 rounded-lg space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium">Billing Frequency</h4>
-                      <Select
-                        value={billing}
-                        onValueChange={(value) =>
-                          setBilling(value as "monthly" | "yearly")
-                        }
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Select billing cycle" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                          <SelectItem value="yearly">
-                            Yearly (Save 10%)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <div className="space-y-6">
+                    {/* Pricing Section */}
+                    <div className="bg-muted/30 p-4 rounded-lg space-y-4">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium">Billing Frequency</h4>
+                          <Select
+                            value={billing}
+                            onValueChange={(value) =>
+                              setBilling(value as "monthly" | "yearly")
+                            }
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Select billing cycle" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="monthly">Monthly</SelectItem>
+                              <SelectItem value="yearly">
+                                Yearly (Save 10%)
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="text-right space-y-1">
+                          <div className="text-2xl font-bold">
+                            $
+                            {billing === "monthly"
+                              ? selectedPlan.monthly_price.toFixed(2)
+                              : (selectedPlan.yearly_price * 0.9).toFixed(2)}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            per {billing === "monthly" ? "month" : "year"}
+                          </div>
+                          {billing === "yearly" && (
+                            <Badge
+                              variant="secondary"
+                              className="text-xs bg-green-100 text-green-700"
+                            >
+                              Original Price $
+                              {(selectedPlan.yearly_price * 0.1 * 10).toFixed(0)}
+                              /year
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right space-y-1">
-                      <div className="text-2xl font-bold">
-                        $
-                        {billing === "monthly"
-                          ? selectedPlan.monthly_price.toFixed(2)
-                          : (selectedPlan.yearly_price * 0.9).toFixed(2)}
+
+                    {/* Features Grid */}
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <div className="w-1 h-4 bg-primary rounded-full"></div>
+                        Plan Features
+                      </h4>
+                      <div className="grid gap-2 max-h-32 overflow-y-auto">
+                        {selectedPlan.features.map((feature, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-3 px-2 py-1.5 hover:bg-muted/30 rounded-lg transition-colors"
+                          >
+                            <CheckCircle className="h-4 w-4 mt-0.5 text-green-500 flex-shrink-0" />
+                            <span className="text-sm">{feature}</span>
+                          </div>
+                        ))}
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        per {billing === "monthly" ? "month" : "year"}
+                    </div>
+
+                    {/* Resource Limits */}
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <div className="w-1 h-4 bg-primary rounded-full"></div>
+                        Resource Limits
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[
+                          {
+                            icon: Users,
+                            label: "Max Users",
+                            value: selectedPlan.max_users,
+                          },
+                          {
+                            icon: FileText,
+                            label: "Max Guides",
+                            value: selectedPlan.max_guides,
+                          },
+                          {
+                            icon: Database,
+                            label: "Max Tokens",
+                            value: selectedPlan.max_tokens.toLocaleString(),
+                          },
+                          {
+                            icon: Zap,
+                            label: "API Requests",
+                            value:
+                              selectedPlan.total_requests_limit?.toLocaleString() ||
+                              "Unlimited",
+                          },
+                        ].map((item, i) => (
+                          <div key={i} className="border rounded-lg p-3 space-y-2">
+                            <div className="flex items-center gap-2">
+                              <item.icon className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {item.label}
+                              </span>
+                            </div>
+                            <div className="text-lg font-semibold">
+                              {item.value}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      {billing === "yearly" && (
-                        <Badge
-                          variant="secondary"
-                          className="text-xs bg-green-100 text-green-700"
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="pt-2 flex gap-3">
+                      <Button
+                        onClick={proceedToPayment}
+                        disabled={!shouldEnableButton || isUpdating}
+                        className="w-full"
+                        size="lg"
+                      >
+                        {isUpdating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Processing...
+                          </>
+                        ) : hasNoSubscription ? (
+                          <>
+                            <Crown className="h-4 w-4 mr-2" />
+                            Subscribe Now
+                          </>
+                        ) : isFrequencyChange ? (
+                          <>
+                            <Calendar className="h-4 w-4 mr-2" />
+                            Update Billing Frequency
+                          </>
+                        ) : selectedPlan.id === subscription?.plan ? (
+                          "Current Plan"
+                        ) : selectedPlan.monthly_price > (subscription?.plan_details.monthly_price || 0) ? (
+                          <>
+                            <Crown className="h-4 w-4 mr-2" />
+                            Upgrade Plan
+                          </>
+                        ) : (
+                          "Change Plan"
+                        )}
+                      </Button>
+
+                      {/* Unsubscribe Button - Only shows for current plan */}
+                      {selectedPlan.id === subscription?.plan && (
+                        <Button
+                          onClick={handleUnsubscribe}
+                          disabled={isUpdating}
+                          className="w-full"
+                          size="lg"
+                          variant="destructive"
                         >
-                          Original Price $
-                          {(selectedPlan.yearly_price * 0.1 * 10).toFixed(0)}
-                          /year
-                        </Badge>
+                          {isUpdating ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <X className="h-4 w-4 mr-2" />
+                              Unsubscribe
+                            </>
+                          )}
+                        </Button>
                       )}
                     </div>
                   </div>
-                </div>
-
-                {/* Features Grid */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-1 h-4 bg-primary rounded-full"></div>
-                    Plan Features
-                  </h4>
-                  <div className="grid gap-2 max-h-32 overflow-y-auto">
-                    {selectedPlan.features.map((feature, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-3 px-2 py-1.5 hover:bg-muted/30 rounded-lg transition-colors"
+                </>
+              ) : (
+                // Payment View
+                <>
+                  <DialogHeader className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={goBackToDetails}
+                        className="p-1 h-8 w-8"
                       >
-                        <CheckCircle className="h-4 w-4 mt-0.5 text-green-500 flex-shrink-0" />
-                        <span className="text-sm">{feature}</span>
+                        <ArrowLeft className="h-4 w-4" />
+                      </Button>
+                      <div>
+                        <DialogTitle className="text-xl font-semibold">
+                          Payment Confirmation
+                        </DialogTitle>
+                        <DialogDescription className="text-sm">
+                          Please enter your payment details for{" "}
+                          <span className="font-semibold">{selectedPlan.name}</span> plan
+                        </DialogDescription>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  </DialogHeader>
 
-                {/* Resource Limits */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-1 h-4 bg-primary rounded-full"></div>
-                    Resource Limits
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      {
-                        icon: Users,
-                        label: "Max Users",
-                        value: selectedPlan.max_users,
-                      },
-                      {
-                        icon: FileText,
-                        label: "Max Guides",
-                        value: selectedPlan.max_guides,
-                      },
-                      {
-                        icon: Database,
-                        label: "Max Tokens",
-                        value: selectedPlan.max_tokens.toLocaleString(),
-                      },
-                      {
-                        icon: Zap,
-                        label: "API Requests",
-                        value:
-                          selectedPlan.total_requests_limit?.toLocaleString() ||
-                          "Unlimited",
-                      },
-                    ].map((item, i) => (
-                      <div key={i} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <item.icon className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {item.label}
+                  <div className="space-y-6">
+                    {/* Payment Summary */}
+                    <div className="bg-muted/30 p-4 rounded-lg space-y-3">
+                      <h4 className="text-sm font-medium">Payment Summary</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Plan</span>
+                          <span className="text-sm font-medium">{selectedPlan.name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-muted-foreground">Billing</span>
+                          <span className="text-sm font-medium capitalize">{billing}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between">
+                          <span className="text-sm font-medium">Total Amount</span>
+                          <span className="text-lg font-bold text-primary">
+                            ${selectedPlanPrice.toFixed(2)}
                           </span>
                         </div>
-                        <div className="text-lg font-semibold">
-                          {item.value}
-                        </div>
                       </div>
-                    ))}
+                    </div>
+
+                    {/* Payment Form */}
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="amount">Amount</Label>
+                        <Input
+                          id="amount"
+                          type="text"
+                          value={`$${selectedPlanPrice.toFixed(2)}`}
+                          readOnly
+                          className="mt-1 bg-gray-50"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="transactionId">Transaction ID</Label>
+                        <Input
+                          id="transactionId"
+                          type="text"
+                          value={transactionId}
+                          onChange={(e) => setTransactionId(e.target.value)}
+                          placeholder="Enter your payment transaction ID"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Payment Actions */}
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={goBackToDetails}
+                        disabled={paymentProcessing}
+                        className="w-full"
+                      >
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to Plan Details
+                      </Button>
+                      <Button
+                        onClick={handlePaymentConfirmation}
+                        disabled={!transactionId || paymentProcessing}
+                        className="w-full"
+                      >
+                        {paymentProcessing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Processing Payment...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            Confirm Payment
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-
-                {/* Action Button */}
-<div className="pt-2 flex gap-3">
-  <Button
-    onClick={() => handleSubscriptionAction(selectedPlan.id)}
-    disabled={!shouldEnableButton || isUpdating}
-    className="w-full"
-    size="lg"
-  >
-    {isUpdating ? (
-      <>
-        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-        Processing...
-      </>
-    ) : hasNoSubscription ? (
-      <>
-        <Crown className="h-4 w-4 mr-2" />
-        Subscribe Now
-      </>
-    ) : isFrequencyChange ? (
-      <>
-        <Calendar className="h-4 w-4 mr-2" />
-        Update Billing Frequency
-      </>
-    ) : selectedPlan.id === subscription?.plan ? (
-      "Current Plan"
-    ) : selectedPlan.monthly_price > (subscription?.plan_details.monthly_price || 0) ? (
-      <>
-        <Crown className="h-4 w-4 mr-2" />
-        Upgrade Plan
-      </>
-    ) : (
-      "Change Plan"
-    )}
-  </Button>
-
-  {/* New Unsubscribe Button - Only shows for current plan */}
-  {selectedPlan.id === subscription?.plan && (
-    <Button
-      onClick={handleUnsubscribe}
-      disabled={isUpdating}
-      className="w-full"
-      size="lg"
-      variant="destructive"
-    >
-      {isUpdating ? (
-        <>
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          Processing...
-        </>
-      ) : (
-        <>
-          <X className="h-4 w-4 mr-2" />
-          Unsubscribe
-        </>
-      )}
-    </Button>
-  )}
-</div>
-              </div>
+                </>
+              )}
             </>
           )}
         </DialogContent>

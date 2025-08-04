@@ -11,6 +11,8 @@ import { Loader2, CheckCircle, Crown, Zap, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // icons
 const planIcons = [
@@ -20,7 +22,7 @@ const planIcons = [
 ];
 
 function ProfileCompletePopup() {
-const navigate = useNavigate();
+  const navigate = useNavigate();
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -47,6 +49,91 @@ const navigate = useNavigate();
   );
 }
 
+export function PaymentConfirmationModal({
+  isOpen,
+  onClose,
+  selectedPlan,
+  transactionId,
+  setTransactionId,
+  onConfirm,
+  isLoading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  selectedPlan: { id: number; price: number; name: string } | null;
+  transactionId: string;
+  setTransactionId: (value: string) => void;
+  onConfirm: () => void;
+  isLoading: boolean;
+}) {
+  if (!isOpen || !selectedPlan) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100"
+        >
+          <X className="w-5 h-5 text-gray-500" />
+        </button>
+
+        <div className="space-y-6">
+          <div className="text-center">
+            <h3 className="text-xl font-bold text-slate-900">
+              Confirm Payment
+            </h3>
+            <p className="text-slate-600 mt-2">
+              Please enter your payment details for{" "}
+              <span className="font-semibold">{selectedPlan.name}</span> plan
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="amount">Amount</Label>
+              <Input
+                id="amount"
+                type="text"
+                value={`$${selectedPlan.price.toFixed(2)}`}
+                readOnly
+                className="mt-1 bg-gray-50"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="transactionId">Transaction ID</Label>
+              <Input
+                id="transactionId"
+                type="text"
+                value={transactionId}
+                onChange={(e) => setTransactionId(e.target.value)}
+                placeholder="Enter your payment transaction ID"
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <Button
+            onClick={onConfirm}
+            disabled={!transactionId || isLoading}
+            className="w-full"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                Processing Payment...
+              </>
+            ) : (
+              "Confirm Payment"
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Pricing() {
   const { activePlans, loading, error, fetchPublicPlans } =
     usePublicSubscriptionStore();
@@ -60,21 +147,32 @@ export default function Pricing() {
   } = useMySubscriptionStore();
 
   const accessToken = useAuthStore((state) => state.accessToken);
-  const { profile_update, loading: profileLoading, error: profileError } = useUserProfile();
-    const user = useAuthStore((s) => s.user);
+  const {
+    profile_update,
+    loading: profileLoading,
+    error: profileError,
+  } = useUserProfile();
+  const user = useAuthStore((s) => s.user);
   const role = user?.role;
+  const navigate = useNavigate();
 
-  console.log("User :: ", role)
-  
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null);
   const [hasNoSubscription, setHasNoSubscription] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<{
+    id: number;
+    price: number;
+    name: string;
+  } | null>(null);
+  const [transactionId, setTransactionId] = useState("");
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
 
-useEffect(() => {
+  useEffect(() => {
     if (!profile_update && !profileLoading) {
       return;
     }
-    
+
     fetchPublicPlans();
     if (accessToken) {
       fetchMySubscription(accessToken).catch((error) => {
@@ -86,7 +184,13 @@ useEffect(() => {
         }
       });
     }
-  }, [fetchPublicPlans, fetchMySubscription, accessToken, profile_update, profileLoading]);
+  }, [
+    fetchPublicPlans,
+    fetchMySubscription,
+    accessToken,
+    profile_update,
+    profileLoading,
+  ]);
 
   const currentPlanId = subscription?.plan_details.id ?? null;
   const currentPlanPrice = subscription
@@ -95,7 +199,6 @@ useEffect(() => {
       : subscription.plan_details.monthly_price
     : 0;
 
-  // Sorted plans
   const sortedPlans = [...activePlans].sort(
     (a, b) => a.monthly_price - b.monthly_price
   );
@@ -105,8 +208,9 @@ useEffect(() => {
       toast.error("You must be logged in to subscribe.");
       return;
     }
-    if(role == "super_admin"){
-      toast.error("Super Admin can't subscribe to own plans!")
+    if (role == "super_admin") {
+      toast.error("Super Admin can't subscribe to own plans!");
+      return;
     }
 
     try {
@@ -156,28 +260,80 @@ useEffect(() => {
     }
   };
 
-const handleUnsubscribe = async () => {
-  if (!accessToken) {
-    toast.error("You must be logged in to unsubscribe.");
-    return;
-  }
-  if (!subscription) {
-    toast.error("No active subscription found.");
-    return;
-  }
+  const handleUnsubscribe = async () => {
+    if (!accessToken) {
+      toast.error("You must be logged in to unsubscribe.");
+      return;
+    }
+    if (!subscription) {
+      toast.error("No active subscription found.");
+      return;
+    }
 
-  try {
-    setUpdatingPlanId(currentPlanId);
-    await unsubscribeFromPlan(accessToken);
-    toast.success("Successfully unsubscribed");
-    setHasNoSubscription(true);
-  } catch (error) {
-    console.error("Unsubscribe failed:", error);
-    toast.error(error instanceof Error ? error.message : "Failed to unsubscribe");
-  } finally {
-    setUpdatingPlanId(null);
-  }
-};
+    try {
+      setUpdatingPlanId(currentPlanId);
+      await unsubscribeFromPlan(accessToken);
+      toast.success("Successfully unsubscribed");
+      setHasNoSubscription(true);
+    } catch (error) {
+      console.error("Unsubscribe failed:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to unsubscribe"
+      );
+    } finally {
+      setUpdatingPlanId(null);
+    }
+  };
+
+  const handlePaymentConfirmation = async () => {
+    if (!selectedPlan || !transactionId || !accessToken) return;
+
+    setPaymentProcessing(true);
+
+    try {
+      // First verify payment
+      const paymentResponse = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/subscription/my-payments/create/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            amount: selectedPlan.price,
+            transaction_id: transactionId,
+          }),
+        }
+      );
+
+      if (!paymentResponse.ok) {
+        throw new Error("Payment verification failed");
+      }
+
+      // If payment successful, proceed with subscription
+      if (hasNoSubscription || !subscription) {
+        await handleInitialSubscription(selectedPlan.id);
+      } else {
+        await handlePlanChange(selectedPlan.id);
+      }
+
+      setPaymentModalOpen(false);
+      setTransactionId("");
+    } catch (error) {
+      console.error("Payment processing failed:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Payment verification failed"
+      );
+    } finally {
+      setPaymentProcessing(false);
+    }
+  };
+
+  const openPaymentModal = (planId: number, price: number, name: string) => {
+    setSelectedPlan({ id: planId, price, name });
+    setPaymentModalOpen(true);
+  };
 
   if (!profile_update && user.role == "business") {
     return <ProfileCompletePopup />;
@@ -286,7 +442,7 @@ const handleUnsubscribe = async () => {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
           {sortedPlans.map((plan, idx) => {
             const isPopular = idx === 1 && sortedPlans.length > 1;
             const price =
@@ -312,7 +468,15 @@ const handleUnsubscribe = async () => {
                       ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                       : "bg-slate-900 hover:bg-slate-800"
                   )}
-                  onClick={() => handleInitialSubscription(plan.id)}
+                  onClick={() =>
+                    openPaymentModal(
+                      plan.id,
+                      billing === "yearly"
+                        ? plan.yearly_price
+                        : plan.monthly_price,
+                      plan.name
+                    )
+                  }
                   disabled={isUpdating}
                 >
                   {isUpdating ? (
@@ -350,7 +514,15 @@ const handleUnsubscribe = async () => {
                 actionButton = (
                   <Button
                     className="w-full h-12 font-semibold text-base rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
-                    onClick={() => handlePlanChange(plan.id)}
+                    onClick={() =>
+                      openPaymentModal(
+                        plan.id,
+                        billing === "yearly"
+                          ? plan.yearly_price
+                          : plan.monthly_price,
+                        plan.name
+                      )
+                    }
                     disabled={isUpdating}
                   >
                     {isUpdating ? (
@@ -370,7 +542,15 @@ const handleUnsubscribe = async () => {
                 actionButton = (
                   <Button
                     className="w-full h-12 font-semibold text-base rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
-                    onClick={() => handlePlanChange(plan.id)}
+                    onClick={() =>
+                      openPaymentModal(
+                        plan.id,
+                        billing === "yearly"
+                          ? plan.yearly_price
+                          : plan.monthly_price,
+                        plan.name
+                      )
+                    }
                     disabled={isUpdating}
                   >
                     {isUpdating ? (
@@ -388,7 +568,15 @@ const handleUnsubscribe = async () => {
                   <Button
                     variant="outline"
                     className="w-full h-12 font-semibold text-base rounded-xl border-2 hover:bg-slate-50 transition-all duration-300"
-                    onClick={() => handlePlanChange(plan.id)}
+                    onClick={() =>
+                      openPaymentModal(
+                        plan.id,
+                        billing === "yearly"
+                          ? plan.yearly_price
+                          : plan.monthly_price,
+                        plan.name
+                      )
+                    }
                     disabled={isUpdating}
                   >
                     {isUpdating ? (
@@ -514,6 +702,20 @@ const handleUnsubscribe = async () => {
           </div>
         </div>
       </div>
+
+      {/* Payment Confirmation Modal */}
+      <PaymentConfirmationModal
+        isOpen={paymentModalOpen}
+        onClose={() => {
+          setPaymentModalOpen(false);
+          setTransactionId("");
+        }}
+        selectedPlan={selectedPlan}
+        transactionId={transactionId}
+        setTransactionId={setTransactionId}
+        onConfirm={handlePaymentConfirmation}
+        isLoading={paymentProcessing}
+      />
     </div>
   );
 }

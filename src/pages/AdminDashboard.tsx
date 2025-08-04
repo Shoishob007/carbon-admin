@@ -60,6 +60,7 @@ const userGrowth = [
 ];
 
 export default function AdminDashboard() {
+  console.log("this is super admin dash")
   const user = useAuthStore((s) => s.user);
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {

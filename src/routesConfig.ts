@@ -1,5 +1,4 @@
 import { ComponentType } from "react";
-import Dashboard from "./pages/AdminDashboard";
 import ApiDocs from "./pages/ApiDocs";
 import Blogs from "./pages/Blogs";
 import Subscriptions from "./pages/Subscriptions";
@@ -18,6 +17,7 @@ import SettingsPage from "./app/(dashboard)/settings/page";
 import BlogDetails from "./pages/BlogDetails";
 import ContactPage from "./pages/ContactPage";
 import TermsAndConditions from "./pages/Terms";
+import DashboardPage from "./app/(dashboard)/dashboard/page";
 
 // route objects
 export interface AppRoute {
@@ -30,7 +30,7 @@ export interface AppRoute {
 export const routes: AppRoute[] = [
   {
     path: "/",
-    component: Dashboard,
+    component: DashboardPage,
     layout: "dashboard",
     roles: ["super_admin", "business", "individual"],
   },

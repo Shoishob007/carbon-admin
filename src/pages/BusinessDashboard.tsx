@@ -7,16 +7,15 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useUserStore } from "@/store/userStore";
 import { useAuthStore } from "@/store/auth";
+import { useUserStore } from "@/store/userStore";
 import {
   TrendingUp,
   TrendingDown,
   Leaf,
-  Factory,
-  Globe,
-  Users,
-  DollarSign,
+  Server,
+  CreditCard,
+  Calendar,
   BarChart3,
 } from "lucide-react";
 import {
@@ -27,9 +26,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   BarChart,
   Bar,
 } from "recharts";
@@ -43,24 +39,18 @@ const emissionData = [
   { month: "Jun", emissions: 1800, offset: 2600 },
 ];
 
-const offsetProjects = [
-  { name: "Forest Restoration", value: 35, color: "#166534" },
-  { name: "Renewable Energy", value: 30, color: "#15803d" },
-  { name: "Ocean Conservation", value: 20, color: "#16a34a" },
-  { name: "Waste Management", value: 15, color: "#22c55e" },
+const apiGrowthData = [
+  { month: "Jan", calls: 1200 },
+  { month: "Feb", calls: 1900 },
+  { month: "Mar", calls: 2300 },
+  { month: "Apr", calls: 2800 },
+  { month: "May", calls: 3200 },
+  { month: "Jun", calls: 4100 },
 ];
 
-const userGrowth = [
-  { month: "Jan", users: 120 },
-  { month: "Feb", users: 150 },
-  { month: "Mar", users: 180 },
-  { month: "Apr", users: 220 },
-  { month: "May", users: 280 },
-  { month: "Jun", users: 340 },
-];
-
-export default function BusinessDashboard() {
-  const user = useAuthStore((s) => s.user);
+export default function AdminDashboard() {
+  const user = useUserStore((s) => s.user);
+  // console.log("user :: ", user)
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     year: "numeric",
@@ -78,31 +68,50 @@ export default function BusinessDashboard() {
               Welcome back, {user?.name}
             </h1>
             <p className="text-carbon-100">
-              Track and manage carbon emissions and offset projects across your
-              platform
+              Track your API usage, carbon calculations, and offset activities
             </p>
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold">{formattedDate}</div>
-            <div className="text-carbon-100">Your Emission Lab Dashboard</div>
+            <div className="text-carbon-100">Your Dashboard</div>
           </div>
         </div>
       </div>
 
-      {/* Key Metrics */}
+      {/* Key Metrics - COLORED TEXT VERSION */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total CO₂ Offset
+              API Calls This Month
             </CardTitle>
-            <Leaf className="h-4 w-4 text-carbon-600" />
+            <Server className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-carbon-700">2,847 tons</div>
+            <div className="text-2xl font-bold text-blue-600">
+              {user?.profile?.api_requests_made || 0}
+            </div>
             <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingUp className="mr-1 h-3 w-3 text-carbon-500" />
-              +12.3% from last month
+              {user?.profile?.total_requests_limit ? (
+                <>
+                  <Progress
+                    value={
+                      (user.profile.api_requests_made /
+                        user.profile.total_requests_limit) *
+                      100
+                    }
+                    className="h-2 mr-2 w-full"
+                  />
+                  {Math.round(
+                    (user.profile.api_requests_made /
+                      user.profile.total_requests_limit) *
+                      100
+                  )}
+                  % of limit
+                </>
+              ) : (
+                "Unlimited plan"
+              )}
             </div>
           </CardContent>
         </Card>
@@ -110,15 +119,15 @@ export default function BusinessDashboard() {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Active Emissions
+              Total CO₂ Calculated
             </CardTitle>
-            <Factory className="h-4 w-4 text-orange-600" />
+            <Leaf className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-700">1,234 tons</div>
+            <div className="text-2xl font-bold text-orange-600">3.2 tons</div>
             <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingDown className="mr-1 h-3 w-3 text-green-500" />
-              -8.2% from last month
+              <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
+              +15% from last month
             </div>
           </CardContent>
         </Card>
@@ -126,29 +135,30 @@ export default function BusinessDashboard() {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Registered Users
+              Total Offsets Done
             </CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
+            <Leaf className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-700">3,456</div>
+            <div className="text-2xl font-bold text-green-600">2.5 tons</div>
             <div className="flex items-center text-xs text-muted-foreground">
               <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-              +23.1% from last month
+              +10% from last month
             </div>
           </CardContent>
         </Card>
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">
+              Next Billing Date
+            </CardTitle>
+            <Calendar className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-700">$45,231</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-              +19.7% from last month
+            <div className="text-2xl font-bold text-purple-600">Aug 1, 2025</div>
+            <div className="text-xs text-muted-foreground">
+              Estimated: $49.00
             </div>
           </CardContent>
         </Card>
@@ -156,6 +166,7 @@ export default function BusinessDashboard() {
 
       {/* Charts Section */}
       <div className="grid gap-6 lg:grid-cols-2">
+        {/* Original Emissions vs Offset Graph */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -192,138 +203,63 @@ export default function BusinessDashboard() {
           </CardContent>
         </Card>
 
+        {/* API Growth Bar Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-carbon-600" />
-              Offset Projects Distribution
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+              API Call Growth
             </CardTitle>
-            <CardDescription>
-              Breakdown of carbon offset project types
-            </CardDescription>
+            <CardDescription>Monthly API request trends</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={offsetProjects}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={(entry) => `${entry.name}: ${entry.value}%`}
-                >
-                  {offsetProjects.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity & User Growth */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>User Growth</CardTitle>
-            <CardDescription>Monthly user registration trends</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={userGrowth}>
+              <BarChart data={apiGrowthData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="users" fill="#22c55e" />
+                <Bar dataKey="calls" fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Frequently used admin actions</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Carbon Credit Verification</span>
-                <Badge variant="secondary">Pending: 12</Badge>
-              </div>
-              <Progress value={75} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Monthly Reports</span>
-                <Badge variant="secondary">Due: 3</Badge>
-              </div>
-              <Progress value={60} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>User Approvals</span>
-                <Badge variant="secondary">Queue: 8</Badge>
-              </div>
-              <Progress value={40} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>System Health</span>
-                <Badge className="bg-carbon-500">Good</Badge>
-              </div>
-              <Progress value={95} className="h-2" />
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* Recent Activities */}
+      {/* Recent Activities (Original Style) */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Activities</CardTitle>
           <CardDescription>
-            Latest actions and updates across the platform
+            Latest API calls and carbon calculations
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {[
               {
-                action: "Carbon Credit Purchase",
-                user: "EcoTech Corporation",
-                amount: "500 credits",
+                action: "Flight Emission Calculation",
+                type: "calculation",
+                details: "DUB → JFK (3,250 kg CO₂)",
                 time: "2 hours ago",
-                type: "purchase",
               },
               {
-                action: "Emission Report Submitted",
-                user: "GreenManufacturing Ltd",
-                amount: "Monthly Report",
+                action: "API Limit Warning",
+                type: "alert",
+                details: "85% of monthly limit used",
                 time: "4 hours ago",
-                type: "report",
               },
               {
-                action: "New User Registration",
-                user: "Sustainable Solutions Inc",
-                amount: "Premium Plan",
-                time: "6 hours ago",
-                type: "registration",
-              },
-              {
-                action: "Offset Project Completed",
-                user: "Amazon Rainforest Initiative",
-                amount: "1,200 tons CO₂",
-                time: "1 day ago",
+                action: "Carbon Offset Purchase",
                 type: "offset",
+                details: "Verified rainforest project (1.2 tons)",
+                time: "1 day ago",
+              },
+              {
+                action: "New API Key Generated",
+                type: "security",
+                details: "For mobile application",
+                time: "2 days ago",
               },
             ].map((activity, index) => (
               <div
@@ -333,24 +269,23 @@ export default function BusinessDashboard() {
                 <div className="flex items-center space-x-3">
                   <div
                     className={`w-2 h-2 rounded-full ${
-                      activity.type === "purchase"
-                        ? "bg-blue-500"
-                        : activity.type === "report"
+                      activity.type === "calculation"
+                        ? "bg-orange-500"
+                        : activity.type === "alert"
                         ? "bg-yellow-500"
-                        : activity.type === "registration"
+                        : activity.type === "offset"
                         ? "bg-green-500"
-                        : "bg-carbon-500"
+                        : "bg-blue-500"
                     }`}
                   />
                   <div>
                     <div className="font-medium">{activity.action}</div>
                     <div className="text-sm text-muted-foreground">
-                      {activity.user}
+                      {activity.details}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-medium">{activity.amount}</div>
                   <div className="text-sm text-muted-foreground">
                     {activity.time}
                   </div>

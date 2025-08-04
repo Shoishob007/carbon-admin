@@ -60,6 +60,8 @@ const userGrowth = [
 ];
 
 export default function UserDashboard() {
+    console.log("this is user dash")
+
   const user = useAuthStore((s) => s.user);
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
