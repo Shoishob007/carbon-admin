@@ -58,6 +58,8 @@ export default function AdminDashboard() {
     day: "numeric",
   });
 
+  console.log("user?.profile ::: ", user?.profile?.total_requests_limit)
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome Section */}
