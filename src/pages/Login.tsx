@@ -198,7 +198,7 @@ export const Login: React.FC = () => {
           </div>
 
           {/* Forgot Password */}
-          <div className="text-right mb-6">
+          {/* <div className="text-right mb-6">
             <a
               href="#"
               className={`text-sm text-green-600 hover:underline ${
@@ -209,7 +209,7 @@ export const Login: React.FC = () => {
             >
               Forgot password?
             </a>
-          </div>
+          </div> */}
 
           {/* Login button */}
           <div
