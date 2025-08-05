@@ -94,6 +94,7 @@ export default function Billing() {
     updatePaymentStatus,
   } = useBillingStore();
   const { accessToken } = useAuthStore();
+  console.log("My Payments :: ", payments);
   const role = useAuthStore((state) => state.user?.role);
   const [invoices] = useState(initialInvoices);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -121,6 +122,11 @@ export default function Billing() {
         : 0
       : payments.filter((p) => p.subscription_details?.status === "active")
           .length;
+
+  const totalPayments = payments.length;
+  const pendingPayments = payments.filter(
+    (p) => p.payment_status === "pending"
+  ).length;
 
   const totalRevenue = payments
     .filter((p) => p.payment_status === "completed")
@@ -150,7 +156,7 @@ export default function Billing() {
 
   const handleAddPayment = async () => {
     if (!accessToken || role !== "super_admin") return;
-    
+
     setIsSubmitting(true);
     try {
       const response = await fetch(
@@ -217,8 +223,11 @@ export default function Billing() {
               : "Manage customer billing information and review invoices"}
           </p>
         </div>
-                {role === "super_admin" && (
-          <Dialog open={isAddPaymentDialogOpen} onOpenChange={setIsAddPaymentDialogOpen}>
+        {role === "super_admin" && (
+          <Dialog
+            open={isAddPaymentDialogOpen}
+            onOpenChange={setIsAddPaymentDialogOpen}
+          >
             <DialogTrigger asChild>
               <Button className="bg-carbon-gradient hover:bg-carbon-600">
                 <Plus className="mr-2 h-4 w-4" />
@@ -263,7 +272,10 @@ export default function Billing() {
                     id="transaction-id"
                     value={newPayment.transaction_id}
                     onChange={(e) =>
-                      setNewPayment({ ...newPayment, transaction_id: e.target.value })
+                      setNewPayment({
+                        ...newPayment,
+                        transaction_id: e.target.value,
+                      })
                     }
                     placeholder="Enter transaction ID"
                   />
@@ -273,7 +285,12 @@ export default function Billing() {
                 <Button
                   onClick={handleAddPayment}
                   className="bg-carbon-gradient w-full"
-                  disabled={isSubmitting || !newPayment.user || !newPayment.amount || !newPayment.transaction_id}
+                  disabled={
+                    isSubmitting ||
+                    !newPayment.user ||
+                    !newPayment.amount ||
+                    !newPayment.transaction_id
+                  }
                 >
                   {isSubmitting ? (
                     <>
@@ -294,24 +311,28 @@ export default function Billing() {
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              {role === "business" ? "My Plan" : "Customers"}
-            </CardTitle>
-            <Users className="h-4 w-4 text-carbon-600" />
+            {role === "super_admin" ? (
+              <CardTitle className="text-sm font-medium">
+                Total Payments
+              </CardTitle>
+            ) : (
+              <CardTitle className="text-sm font-medium">My Payments</CardTitle>
+            )}
+            <Receipt className="h-4 w-4 text-carbon-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-carbon-700">
-              {totalCustomers}
+              {totalPayments}
             </div>
             <p className="text-xs text-muted-foreground">
-              {activeCustomers} active
+              {pendingPayments} pending
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {role === "business" ? "Total Paid" : "Paid Revenue"}
+              {role === "super_admin" ? "Paid Revenue" : "Total Paid"}
             </CardTitle>
             <DollarSign className="h-4 w-4 text-green-600" />
           </CardHeader>
@@ -320,7 +341,9 @@ export default function Billing() {
               ${totalRevenue.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {role === "business" ? "My payments" : "Total completed payments"}
+              {role === "super_admin"
+                ? "Total completed payments"
+                : "My payments"}
             </p>
           </CardContent>
         </Card>
