@@ -33,42 +33,38 @@ import {
   Mail,
   User,
   Clock,
-  CheckCircle,
-  AlertCircle,
   Loader2,
   HelpCircle,
   Calendar,
-  Eye,
-  BookOpen,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const statusOptions = [
   { value: "all", label: "All Statuses" },
-  { value: "new", label: "New" },
+  { value: "pending", label: "Pending" },
   { value: "in_progress", label: "In Progress" },
-  { value: "completed", label: "Completed" },
 ];
 
 export default function Queries() {
   const accessToken = useAuthStore((state) => state.accessToken);
-  const { queries, loading, error, fetchQueries } = useQueriesStore();
+  const { queries, loading, error, fetchQueries, updateQueryStatus } =
+    useQueriesStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
-  // queries on mount
   useEffect(() => {
     if (accessToken) {
       fetchQueries(accessToken);
     }
   }, [accessToken, fetchQueries]);
 
-  // filters and sort queries
   const filteredQueries = queries
     .filter((query) => {
       const matchesStatus =
         statusFilter === "all" || query.status === statusFilter;
-
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
         query.user_name.toLowerCase().includes(searchLower) ||
@@ -84,33 +80,40 @@ export default function Queries() {
       return sortOrder === "latest" ? dateB - dateA : dateA - dateB;
     });
 
-  // status badge
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "completed":
-        return {
-          variant: "default" as const,
-          text: "Completed",
-          className: "bg-green-100 text-green-800",
-        };
       case "in_progress":
         return {
-          variant: "secondary" as const,
+          variant: "default" as const,
           text: "In Progress",
-          className: "bg-yellow-100 text-yellow-800",
+          className: "bg-blue-100 text-blue-800",
         };
       default:
         return {
           variant: "outline" as const,
-          text: "New",
-          className: "bg-blue-100 text-blue-800",
+          text: "Pending",
+          className: "bg-yellow-100 text-yellow-800",
         };
     }
   };
 
-  // sorting order
   const toggleSortOrder = () => {
     setSortOrder((prev) => (prev === "latest" ? "oldest" : "latest"));
+  };
+
+  const handleStatusUpdate = async (
+    queryId: number,
+    currentStatus: "pending" | "in_progress"
+  ) => {
+    const newStatus = currentStatus === "pending" ? "in_progress" : "pending";
+    try {
+      setUpdatingId(queryId);
+      await updateQueryStatus(accessToken, queryId, newStatus);
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -167,7 +170,7 @@ export default function Queries() {
               {queries.length}
             </div>
             <p className="text-xs text-muted-foreground">
-              {queries.filter((q) => q.status === "new").length} new,{" "}
+              {queries.filter((q) => q.status === "pending").length} pending,{" "}
               {queries.filter((q) => q.status === "in_progress").length} in
               progress
             </p>
@@ -206,16 +209,16 @@ export default function Queries() {
       </div>
 
       {/* Queries Table */}
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>Query History</CardTitle>
           <CardDescription>
-            All user inquiries and support requests (read-only)
+            All user inquiries and support requests
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative max-w-4xl w-full">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search queries..."
@@ -225,11 +228,11 @@ export default function Queries() {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-[180px]">
                 <Filter className="mr-2 h-4 w-4" />
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent className="bg-popover border">
+              <SelectContent>
                 {statusOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -240,65 +243,87 @@ export default function Queries() {
             <Button
               variant="outline"
               onClick={toggleSortOrder}
-              className="w-48"
+              className="w-[180px]"
             >
               <ArrowUpDown className="mr-2 h-4 w-4" />
               {sortOrder === "latest" ? "Latest First" : "Oldest First"}
             </Button>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Message</TableHead>
-                <TableHead>Interests</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Created
-                  </div>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredQueries.map((query) => {
-                const statusBadge = getStatusBadge(query.status);
-                return (
-                  <TableRow key={query.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span>{query.user_name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span>{query.user_email}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {query.message}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {query.interests}
-                    </TableCell>
-                    <TableCell className="max-w-sm">
-                      <Badge
-                        variant={statusBadge.variant}
-                        className={statusBadge.className}
-                      >
-                        {statusBadge.text}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(query.created_at)}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <div className="rounded-md border overflow-x-auto">
+            <Table className="min-w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[150px]">User</TableHead>
+                  <TableHead className="w-[200px]">Email</TableHead>
+                  <TableHead className="min-w-[200px]">Message</TableHead>
+                  <TableHead className="min-w-[150px]">Interests</TableHead>
+                  <TableHead className="w-[120px]">Status</TableHead>
+                  <TableHead className="w-[120px]">Created</TableHead>
+                  <TableHead className="w-[150px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredQueries.map((query) => {
+                  const statusBadge = getStatusBadge(query.status);
+                  return (
+                    <TableRow key={query.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2 truncate">
+                          <span>{query.user_name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 truncate">
+                          <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="truncate">{query.user_email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="truncate max-w-[200px]">
+                        {query.message}
+                      </TableCell>
+                      <TableCell className="truncate max-w-[150px]">
+                        {query.interests}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={statusBadge.variant}
+                          className={statusBadge.className}
+                        >
+                          {statusBadge.text}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatDate(query.created_at)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id={`status-${query.id}`}
+                            checked={query.status === "in_progress"}
+                            onCheckedChange={() =>
+                              handleStatusUpdate(query.id, query.status)
+                            }
+                            disabled={updatingId === query.id}
+                          />
+                          <Label
+                            htmlFor={`status-${query.id}`}
+                            className="text-sm"
+                          >
+                            {updatingId === query.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : query.status === "in_progress" ? (
+                              "In Progress"
+                            ) : (
+                              "Pending"
+                            )}
+                          </Label>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
 
           {filteredQueries.length === 0 && !loading && (
             <div className="text-center py-8 text-muted-foreground">

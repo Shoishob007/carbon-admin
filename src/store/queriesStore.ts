@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
 interface Query {
   id: number;
@@ -6,7 +6,7 @@ interface Query {
   user_name: string;
   interests: string;
   message: string;
-  status: 'in_progress' | 'completed' | 'new';
+  status: "pending" | "in_progress";
   created_at: string;
   updated_at: string;
 }
@@ -16,6 +16,11 @@ interface QueriesStore {
   loading: boolean;
   error: string | null;
   fetchQueries: (accessToken: string) => Promise<void>;
+  updateQueryStatus: (
+    accessToken: string,
+    queryId: number,
+    newStatus: "pending" | "in_progress"
+  ) => Promise<void>;
 }
 
 export const useQueriesStore = create<QueriesStore>((set) => ({
@@ -25,11 +30,14 @@ export const useQueriesStore = create<QueriesStore>((set) => ({
   fetchQueries: async (accessToken) => {
     set({ loading: true, error: null });
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/articles/issues/`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/articles/issues/`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -38,10 +46,39 @@ export const useQueriesStore = create<QueriesStore>((set) => ({
       const data = await response.json();
       set({ queries: data, loading: false });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Failed to fetch queries',
-        loading: false 
+      set({
+        error:
+          error instanceof Error ? error.message : "Failed to fetch queries",
+        loading: false,
       });
+    }
+  },
+  updateQueryStatus: async (accessToken, queryId, newStatus) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/articles/issues/${queryId}/`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      set((state) => ({
+        queries: state.queries.map((query) =>
+          query.id === queryId ? { ...query, status: newStatus } : query
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to update query status:", error);
+      throw error;
     }
   },
 }));

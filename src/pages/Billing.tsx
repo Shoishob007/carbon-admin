@@ -19,6 +19,7 @@ import {
   Download,
   DollarSign,
   Loader2,
+  Plus,
 } from "lucide-react";
 import {
   Dialog,
@@ -26,6 +27,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -95,6 +97,13 @@ export default function Billing() {
   const role = useAuthStore((state) => state.user?.role);
   const [invoices] = useState(initialInvoices);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isAddPaymentDialogOpen, setIsAddPaymentDialogOpen] = useState(false);
+  const [newPayment, setNewPayment] = useState({
+    user: "",
+    amount: "",
+    transaction_id: "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch payments on component mount
   useEffect(() => {
@@ -102,8 +111,6 @@ export default function Billing() {
       fetchPayments(accessToken, role);
     }
   }, [accessToken, role, fetchPayments]);
-
-  console.log("payemnts :: ", payments);
 
   // Statistics
   const totalCustomers = role === "business" ? 1 : payments.length;
@@ -141,6 +148,46 @@ export default function Billing() {
     clearSelectedPayment();
   };
 
+  const handleAddPayment = async () => {
+    if (!accessToken || role !== "super_admin") return;
+    
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/subscription/admin/payments/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            user: parseInt(newPayment.user),
+            amount: parseFloat(newPayment.amount),
+            transaction_id: newPayment.transaction_id,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to add payment");
+      }
+
+      // Refresh payments
+      await fetchPayments(accessToken, role);
+      setIsAddPaymentDialogOpen(false);
+      setNewPayment({
+        user: "",
+        amount: "",
+        transaction_id: "",
+      });
+    } catch (error) {
+      console.error("Error adding payment:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (loading && payments.length === 0) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -170,6 +217,77 @@ export default function Billing() {
               : "Manage customer billing information and review invoices"}
           </p>
         </div>
+                {role === "super_admin" && (
+          <Dialog open={isAddPaymentDialogOpen} onOpenChange={setIsAddPaymentDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-carbon-gradient hover:bg-carbon-600">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Payment
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] bg-background border">
+              <DialogHeader className="text-center">
+                <DialogTitle>Add New Payment</DialogTitle>
+                <DialogDescription>
+                  Create a new payment record for a customer
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
+                <div className="space-y-2">
+                  <Label htmlFor="user-id">User ID</Label>
+                  <Input
+                    id="user-id"
+                    type="number"
+                    value={newPayment.user}
+                    onChange={(e) =>
+                      setNewPayment({ ...newPayment, user: e.target.value })
+                    }
+                    placeholder="Enter user ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    value={newPayment.amount}
+                    onChange={(e) =>
+                      setNewPayment({ ...newPayment, amount: e.target.value })
+                    }
+                    placeholder="Enter amount"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="transaction-id">Transaction ID</Label>
+                  <Input
+                    id="transaction-id"
+                    value={newPayment.transaction_id}
+                    onChange={(e) =>
+                      setNewPayment({ ...newPayment, transaction_id: e.target.value })
+                    }
+                    placeholder="Enter transaction ID"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-center px-4 pb-4">
+                <Button
+                  onClick={handleAddPayment}
+                  className="bg-carbon-gradient w-full"
+                  disabled={isSubmitting || !newPayment.user || !newPayment.amount || !newPayment.transaction_id}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Add Payment"
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {/* Statistics Cards */}
