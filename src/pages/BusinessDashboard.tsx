@@ -54,7 +54,7 @@ export default function BusinessDashbard() {
   const user = useUserStore((s) => s.user);
   const { payments } = useBillingStore();
   const { subscription } = useMySubscriptionStore();
-  console.log("My subscription plan :: ", user.profile?.api_requests_made);
+  // console.log("My subscription plan :: ", user.profile?.api_requests_made);
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     year: "numeric",
@@ -96,7 +96,7 @@ export default function BusinessDashbard() {
       )
     : null;
 
-  // console.log("user?.profile ::: ", user?.profile?.total_requests_limit);
+  console.log("user?.profile ::: ", user);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -129,21 +129,21 @@ export default function BusinessDashbard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {user.profile?.api_requests_made}
+              {user?.profile?.api_requests_made}
             </div>
             <div className="flex flex-col gap-2 text-xs text-muted-foreground">
               {user?.profile?.total_requests_limit ? (
                 <>
                   <Progress
                     value={
-                      (user.profile.api_requests_made /
-                        user.profile.total_requests_limit) *
+                      (user?.profile.api_requests_made /
+                        user?.profile.total_requests_limit) *
                       100
                     }
                     className="h-2 mr-2 w-full"
                   />
-                    {(user.profile.api_requests_made /
-                      user.profile.total_requests_limit) *
+                    {(user?.profile.api_requests_made /
+                      user?.profile.total_requests_limit) *
                       100}
                   % of your limit
                 </>

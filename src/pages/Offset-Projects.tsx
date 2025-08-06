@@ -1,10 +1,5 @@
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -64,7 +59,8 @@ const initialProjects: OffsetProject[] = [
     owner: "GreenFuture Org",
     site: "https://greenfuture.org/projects/amazon",
     location: "Brazil, Amazon Basin",
-    description: "Reforestation and biodiversity recovery in deforested areas of the Amazon.",
+    description:
+      "Reforestation and biodiversity recovery in deforested areas of the Amazon.",
     isActive: true,
     moreDetails:
       "This project aims to restore over 5,000 hectares of native forest, support local communities, and protect wildlife habitats. Activities include tree planting, soil restoration, and monitoring carbon sequestration through satellite and field surveys.",
@@ -81,7 +77,8 @@ const initialProjects: OffsetProject[] = [
     owner: "EcoHelp Nonprofit",
     site: "https://ecohelp.org/cookstoves",
     location: "Nairobi, Kenya",
-    description: "Distribution of efficient cookstoves to reduce emissions and improve indoor air quality.",
+    description:
+      "Distribution of efficient cookstoves to reduce emissions and improve indoor air quality.",
     isActive: true,
     moreDetails:
       "By providing over 10,000 clean cookstoves, this project lowers wood use, reduces smoke-related illnesses, and empowers women. The project is monitored annually to ensure ongoing impact and adoption.",
@@ -98,7 +95,8 @@ const initialProjects: OffsetProject[] = [
     owner: "Sustainable Energy Trust",
     site: "https://sustainableenergytrust.org/wind-india",
     location: "Gujarat, India",
-    description: "Development of community wind turbines supplying renewable energy to villages.",
+    description:
+      "Development of community wind turbines supplying renewable energy to villages.",
     isActive: true,
     moreDetails:
       "Installed turbines have generated over 20 MW of clean electricity, serving 15 rural communities and displacing fossil fuels. The project includes training programs for local technicians and long-term maintenance plans.",
@@ -115,7 +113,8 @@ const initialProjects: OffsetProject[] = [
     owner: "EarthGuardians",
     site: "https://earthguardians.asia/peatlands",
     location: "Sumatra, Indonesia",
-    description: "Conservation of critical peatland ecosystems to prevent CO₂ release.",
+    description:
+      "Conservation of critical peatland ecosystems to prevent CO₂ release.",
     isActive: false,
     moreDetails:
       "By blocking drainage canals and restoring natural water levels, this project prevents peat fires and large-scale CO₂ emissions. Community education and sustainable land-use alternatives are core components.",
@@ -128,9 +127,11 @@ const initialProjects: OffsetProject[] = [
 ];
 
 export default function OffsetProjects() {
-    const role = useAuthStore((state) => state.user?.role);
+  const role = useAuthStore((state) => state.user?.role);
   const [projects, setProjects] = useState<OffsetProject[]>(initialProjects);
-  const [selectedProject, setSelectedProject] = useState<OffsetProject | null>(null);
+  const [selectedProject, setSelectedProject] = useState<OffsetProject | null>(
+    null
+  );
 
   const [newProject, setNewProject] = useState({
     name: "",
@@ -231,187 +232,193 @@ export default function OffsetProjects() {
             Offset Projects
           </h1>
           <p className="text-muted-foreground mt-2">
-            Manage and showcase environmental offset projects. Add, edit, delete or view details.
+            Manage and showcase environmental offset projects. Add, edit, delete
+            or view details.
           </p>
         </div>
         {role === "super_admin" && (
           <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-carbon-gradient hover:bg-carbon-600">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] bg-background border">
-            <DialogHeader className="text-center">
-              <DialogTitle>Add Offset Project</DialogTitle>
-              <DialogDescription>
-                Register a new environmental offset project.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
-              <div className="space-y-2">
-                <Label htmlFor="project-name">Project Name</Label>
-                <Input
-                  id="project-name"
-                  value={newProject.name}
-                  onChange={(e) =>
-                    setNewProject({ ...newProject, name: e.target.value })
-                  }
-                  placeholder="e.g., Amazon Rainforest Restoration"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-image">Image URL</Label>
-                <Input
-                  id="project-image"
-                  value={newProject.image}
-                  onChange={(e) =>
-                    setNewProject({ ...newProject, image: e.target.value })
-                  }
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-owner">Owner</Label>
-                <Input
-                  id="project-owner"
-                  value={newProject.owner}
-                  onChange={(e) =>
-                    setNewProject({ ...newProject, owner: e.target.value })
-                  }
-                  placeholder="Organization or Individual"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-site">Project Site (URL)</Label>
-                <Input
-                  id="project-site"
-                  value={newProject.site}
-                  onChange={(e) =>
-                    setNewProject({ ...newProject, site: e.target.value })
-                  }
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-location">Location</Label>
-                <Input
-                  id="project-location"
-                  value={newProject.location}
-                  onChange={(e) =>
-                    setNewProject({ ...newProject, location: e.target.value })
-                  }
-                  placeholder="e.g., Brazil, Amazon Basin"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-description">Short Description</Label>
-                <Textarea
-                  id="project-description"
-                  value={newProject.description}
-                  onChange={(e) =>
-                    setNewProject({ ...newProject, description: e.target.value })
-                  }
-                  placeholder="Short summary of project..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-more-details">More Details</Label>
-                <Textarea
-                  id="project-more-details"
-                  value={newProject.moreDetails}
-                  onChange={(e) =>
-                    setNewProject({
-                      ...newProject,
-                      moreDetails: e.target.value,
-                    })
-                  }
-                  placeholder="Detailed description, methodology, monitoring, etc."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-estimated-offset">Estimated Offset</Label>
-                <Input
-                  id="project-estimated-offset"
-                  value={newProject.estimatedOffset}
-                  onChange={(e) =>
-                    setNewProject({
-                      ...newProject,
-                      estimatedOffset: e.target.value,
-                    })
-                  }
-                  placeholder="e.g., 150,000 tCO₂e/year"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-type">Project Type</Label>
-                <Input
-                  id="project-type"
-                  value={newProject.projectType}
-                  onChange={(e) =>
-                    setNewProject({
-                      ...newProject,
-                      projectType: e.target.value,
-                    })
-                  }
-                  placeholder="e.g., Reforestation, Renewable Energy"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-startdate">Start Date</Label>
-                <Input
-                  id="project-startdate"
-                  type="date"
-                  value={newProject.startDate}
-                  onChange={(e) =>
-                    setNewProject({
-                      ...newProject,
-                      startDate: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="project-enddate">End Date</Label>
-                <Input
-                  id="project-enddate"
-                  type="date"
-                  value={newProject.endDate}
-                  onChange={(e) =>
-                    setNewProject({
-                      ...newProject,
-                      endDate: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="flex items-center gap-2 mt-2">
-                <Switch
-                  checked={newProject.isActive}
-                  onCheckedChange={() =>
-                    setNewProject({
-                      ...newProject,
-                      isActive: !newProject.isActive,
-                    })
-                  }
-                  id="project-active"
-                />
-                <Label htmlFor="project-active">
-                  {newProject.isActive ? "Active" : "Inactive"}
-                </Label>
-              </div>
-            </div>
-            <div className="flex justify-center px-4 pb-4">
-              <Button
-                onClick={handleCreateProject}
-                className="bg-carbon-gradient w-full"
-              >
+            <DialogTrigger asChild>
+              <Button className="bg-carbon-gradient hover:bg-carbon-600">
+                <Plus className="mr-2 h-4 w-4" />
                 Add Project
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] bg-background border">
+              <DialogHeader className="text-center">
+                <DialogTitle>Add Offset Project</DialogTitle>
+                <DialogDescription>
+                  Register a new environmental offset project.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 p-4 max-h-96 overflow-y-auto px-4">
+                <div className="space-y-2">
+                  <Label htmlFor="project-name">Project Name</Label>
+                  <Input
+                    id="project-name"
+                    value={newProject.name}
+                    onChange={(e) =>
+                      setNewProject({ ...newProject, name: e.target.value })
+                    }
+                    placeholder="e.g., Amazon Rainforest Restoration"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-image">Image URL</Label>
+                  <Input
+                    id="project-image"
+                    value={newProject.image}
+                    onChange={(e) =>
+                      setNewProject({ ...newProject, image: e.target.value })
+                    }
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-owner">Owner</Label>
+                  <Input
+                    id="project-owner"
+                    value={newProject.owner}
+                    onChange={(e) =>
+                      setNewProject({ ...newProject, owner: e.target.value })
+                    }
+                    placeholder="Organization or Individual"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-site">Project Site (URL)</Label>
+                  <Input
+                    id="project-site"
+                    value={newProject.site}
+                    onChange={(e) =>
+                      setNewProject({ ...newProject, site: e.target.value })
+                    }
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-location">Location</Label>
+                  <Input
+                    id="project-location"
+                    value={newProject.location}
+                    onChange={(e) =>
+                      setNewProject({ ...newProject, location: e.target.value })
+                    }
+                    placeholder="e.g., Brazil, Amazon Basin"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-description">Short Description</Label>
+                  <Textarea
+                    id="project-description"
+                    value={newProject.description}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        description: e.target.value,
+                      })
+                    }
+                    placeholder="Short summary of project..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-more-details">More Details</Label>
+                  <Textarea
+                    id="project-more-details"
+                    value={newProject.moreDetails}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        moreDetails: e.target.value,
+                      })
+                    }
+                    placeholder="Detailed description, methodology, monitoring, etc."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-estimated-offset">
+                    Estimated Offset
+                  </Label>
+                  <Input
+                    id="project-estimated-offset"
+                    value={newProject.estimatedOffset}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        estimatedOffset: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., 150,000 tCO₂e/year"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-type">Project Type</Label>
+                  <Input
+                    id="project-type"
+                    value={newProject.projectType}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        projectType: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., Reforestation, Renewable Energy"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-startdate">Start Date</Label>
+                  <Input
+                    id="project-startdate"
+                    type="date"
+                    value={newProject.startDate}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        startDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-enddate">End Date</Label>
+                  <Input
+                    id="project-enddate"
+                    type="date"
+                    value={newProject.endDate}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        endDate: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <Switch
+                    checked={newProject.isActive}
+                    onCheckedChange={() =>
+                      setNewProject({
+                        ...newProject,
+                        isActive: !newProject.isActive,
+                      })
+                    }
+                    id="project-active"
+                  />
+                  <Label htmlFor="project-active">
+                    {newProject.isActive ? "Active" : "Inactive"}
+                  </Label>
+                </div>
+              </div>
+              <div className="flex justify-center px-4 pb-4">
+                <Button
+                  onClick={handleCreateProject}
+                  className="bg-carbon-gradient w-full"
+                >
+                  Add Project
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
 
@@ -445,7 +452,7 @@ export default function OffsetProjects() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="ml-1 text-carbon-600 hover:text-carbon-800"
-                  onClick={e => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
                   title="Open project site"
                 >
                   <ExternalLink className="w-4 h-4 inline" />
@@ -465,7 +472,7 @@ export default function OffsetProjects() {
                   size="sm"
                   variant="ghost"
                   className="text-blue-700 hover:bg-accent px-2 py-1"
-                  onClick={e => {
+                  onClick={(e) => {
                     e.stopPropagation();
                     setSelectedProject(project);
                   }}
@@ -477,14 +484,14 @@ export default function OffsetProjects() {
                   <>
                     <Dialog
                       open={editProjectId === project.id}
-                      onOpenChange={open => !open && setEditProjectId(null)}
+                      onOpenChange={(open) => !open && setEditProjectId(null)}
                     >
                       <DialogTrigger asChild>
                         <Button
                           size="sm"
                           variant="ghost"
                           className="text-green-700 hover:bg-accent px-2 py-1"
-                          onClick={e => {
+                          onClick={(e) => {
                             e.stopPropagation();
                             openEditProject(project);
                           }}
@@ -500,13 +507,15 @@ export default function OffsetProjects() {
                             Update offset project details.
                           </DialogDescription>
                         </DialogHeader>
-                        <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
+                        <div className="grid gap-4 p-4 max-h-96 overflow-y-auto px-4">
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-name">Project Name</Label>
+                            <Label htmlFor="edit-project-name">
+                              Project Name
+                            </Label>
                             <Input
                               id="edit-project-name"
                               value={editProject.name}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   name: e.target.value,
@@ -515,11 +524,13 @@ export default function OffsetProjects() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-image">Image URL</Label>
+                            <Label htmlFor="edit-project-image">
+                              Image URL
+                            </Label>
                             <Input
                               id="edit-project-image"
                               value={editProject.image}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   image: e.target.value,
@@ -532,7 +543,7 @@ export default function OffsetProjects() {
                             <Input
                               id="edit-project-owner"
                               value={editProject.owner}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   owner: e.target.value,
@@ -541,11 +552,13 @@ export default function OffsetProjects() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-site">Project Site (URL)</Label>
+                            <Label htmlFor="edit-project-site">
+                              Project Site (URL)
+                            </Label>
                             <Input
                               id="edit-project-site"
                               value={editProject.site}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   site: e.target.value,
@@ -554,11 +567,13 @@ export default function OffsetProjects() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-location">Location</Label>
+                            <Label htmlFor="edit-project-location">
+                              Location
+                            </Label>
                             <Input
                               id="edit-project-location"
                               value={editProject.location}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   location: e.target.value,
@@ -567,11 +582,13 @@ export default function OffsetProjects() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-description">Short Description</Label>
+                            <Label htmlFor="edit-project-description">
+                              Short Description
+                            </Label>
                             <Textarea
                               id="edit-project-description"
                               value={editProject.description}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   description: e.target.value,
@@ -580,11 +597,13 @@ export default function OffsetProjects() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-more-details">More Details</Label>
+                            <Label htmlFor="edit-project-more-details">
+                              More Details
+                            </Label>
                             <Textarea
                               id="edit-project-more-details"
                               value={editProject.moreDetails}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   moreDetails: e.target.value,
@@ -593,11 +612,13 @@ export default function OffsetProjects() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-estimated-offset">Estimated Offset</Label>
+                            <Label htmlFor="edit-project-estimated-offset">
+                              Estimated Offset
+                            </Label>
                             <Input
                               id="edit-project-estimated-offset"
                               value={editProject.estimatedOffset}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   estimatedOffset: e.target.value,
@@ -606,11 +627,13 @@ export default function OffsetProjects() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-type">Project Type</Label>
+                            <Label htmlFor="edit-project-type">
+                              Project Type
+                            </Label>
                             <Input
                               id="edit-project-type"
                               value={editProject.projectType}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   projectType: e.target.value,
@@ -619,12 +642,14 @@ export default function OffsetProjects() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-startdate">Start Date</Label>
+                            <Label htmlFor="edit-project-startdate">
+                              Start Date
+                            </Label>
                             <Input
                               id="edit-project-startdate"
                               type="date"
                               value={editProject.startDate}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   startDate: e.target.value,
@@ -633,12 +658,14 @@ export default function OffsetProjects() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="edit-project-enddate">End Date</Label>
+                            <Label htmlFor="edit-project-enddate">
+                              End Date
+                            </Label>
                             <Input
                               id="edit-project-enddate"
                               type="date"
                               value={editProject.endDate}
-                              onChange={e =>
+                              onChange={(e) =>
                                 setEditProject({
                                   ...editProject,
                                   endDate: e.target.value,
@@ -681,7 +708,7 @@ export default function OffsetProjects() {
                       size="sm"
                       variant="ghost"
                       className="text-red-700 hover:bg-accent px-2 py-1"
-                      onClick={e => {
+                      onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteProject(project.id);
                       }}
@@ -692,12 +719,18 @@ export default function OffsetProjects() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className={`px-2 py-1 ${project.isActive ? "text-gray-700" : "text-green-700"}`}
-                      onClick={e => {
+                      className={`px-2 py-1 ${
+                        project.isActive ? "text-gray-700" : "text-green-700"
+                      }`}
+                      onClick={(e) => {
                         e.stopPropagation();
                         handleToggleProject(project.id);
                       }}
-                      title={project.isActive ? "Deactivate project" : "Activate project"}
+                      title={
+                        project.isActive
+                          ? "Deactivate project"
+                          : "Activate project"
+                      }
                     >
                       <Globe className="w-4 h-4 mr-1" />
                       {project.isActive ? "Deactivate" : "Activate"}
@@ -709,12 +742,17 @@ export default function OffsetProjects() {
           </Card>
         ))}
         {projects.length === 0 && (
-          <div className="col-span-full text-center text-muted-foreground py-10">No projects available.</div>
+          <div className="col-span-full text-center text-muted-foreground py-10">
+            No projects available.
+          </div>
         )}
       </div>
 
       {/* Project View Dialog */}
-      <Dialog open={!!selectedProject} onOpenChange={() => setSelectedProject(null)}>
+      <Dialog
+        open={!!selectedProject}
+        onOpenChange={() => setSelectedProject(null)}
+      >
         <DialogContent className="max-w-4xl w-full bg-background border overflow-y-auto max-h-[90vh]">
           {selectedProject && (
             <>
@@ -734,13 +772,16 @@ export default function OffsetProjects() {
                 <DialogDescription className="mt-2 text-base">
                   <div className="flex flex-wrap gap-4 items-center text-base">
                     <span className="flex items-center gap-1">
-                      <User className="w-5 h-5" /> <b>Owner:</b> {selectedProject.owner}
+                      <User className="w-5 h-5" /> <b>Owner:</b>{" "}
+                      {selectedProject.owner}
                     </span>
                     <span className="flex items-center gap-1">
-                      <MapPin className="w-5 h-5" /> <b>Location:</b> {selectedProject.location}
+                      <MapPin className="w-5 h-5" /> <b>Location:</b>{" "}
+                      {selectedProject.location}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Globe className="w-5 h-5" /> <b>Status:</b> {selectedProject.isActive ? "Active" : "Inactive"}
+                      <Globe className="w-5 h-5" /> <b>Status:</b>{" "}
+                      {selectedProject.isActive ? "Active" : "Inactive"}
                     </span>
                     {selectedProject.projectType && (
                       <span className="flex items-center gap-1">
@@ -758,12 +799,20 @@ export default function OffsetProjects() {
                 />
                 <div className="flex-1 space-y-4">
                   <div>
-                    <span className="font-semibold text-lg">Short Description:</span>
-                    <div className="mt-1 text-base">{selectedProject.description}</div>
+                    <span className="font-semibold text-lg">
+                      Short Description:
+                    </span>
+                    <div className="mt-1 text-base">
+                      {selectedProject.description}
+                    </div>
                   </div>
                   <div>
-                    <span className="font-semibold text-lg">Detailed Overview:</span>
-                    <div className="mt-1 whitespace-pre-line text-base">{selectedProject.moreDetails}</div>
+                    <span className="font-semibold text-lg">
+                      Detailed Overview:
+                    </span>
+                    <div className="mt-1 whitespace-pre-line text-base">
+                      {selectedProject.moreDetails}
+                    </div>
                   </div>
                   {selectedProject.estimatedOffset && (
                     <div>
@@ -792,7 +841,9 @@ export default function OffsetProjects() {
                     )}
                   </div>
                   <div>
-                    <span className="font-semibold">Official Project Link: </span>
+                    <span className="font-semibold">
+                      Official Project Link:{" "}
+                    </span>
                     <a
                       href={selectedProject.site}
                       target="_blank"

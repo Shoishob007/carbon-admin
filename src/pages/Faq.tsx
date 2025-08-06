@@ -184,7 +184,7 @@ export default function Faqs() {
                 Provide a question and answer for your carbon management FAQ
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
+            <div className="grid gap-4 p-4 max-h-96 overflow-y-auto px-4">
               <div className="space-y-2">
                 <Label htmlFor="faq-q">Question</Label>
                 <Input
@@ -357,7 +357,7 @@ export default function Faqs() {
                               Update the question or answer
                             </DialogDescription>
                           </DialogHeader>
-                          <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
+                          <div className="grid gap-4 p-4 max-h-96 overflow-y-auto px-4">
                             <div className="space-y-2">
                               <Label htmlFor="edit-faq-q">Question</Label>
                               <Input

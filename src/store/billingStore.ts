@@ -40,7 +40,18 @@ interface BillingState {
   error: string | null;
   selectedPayment: PaymentDetailsResponse | null;
   fetchPayments: (accessToken: string, role: string) => Promise<void>;
-  fetchPaymentById: (id: number, accessToken: string, role: string) => Promise<void>;
+  fetchPaymentById: (
+    id: number,
+    accessToken: string,
+    role: string
+  ) => Promise<void>;
+  addPayment: (
+    userId: string,
+    amount: string,
+    transactionId: string,
+    accessToken: string,
+    role: string
+  ) => Promise<void>;
   updatePaymentStatus: (
     paymentId: number,
     status: string,
@@ -62,9 +73,13 @@ export const useBillingStore = create<BillingState>()(
         try {
           let url;
           if (role === "business") {
-            url = `${import.meta.env.VITE_API_URL}/api/subscription/my-payments/`;
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/my-payments/`;
           } else {
-            url = `${import.meta.env.VITE_API_URL}/api/subscription/admin/payments/`;
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/admin/payments/`;
           }
 
           const response = await fetch(url, {
@@ -83,21 +98,32 @@ export const useBillingStore = create<BillingState>()(
           set({ payments: data.payments || [] });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to fetch payments",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to fetch payments",
           });
         } finally {
           set({ loading: false });
         }
       },
 
-      fetchPaymentById: async (id: number, accessToken: string, role: string) => {
+      fetchPaymentById: async (
+        id: number,
+        accessToken: string,
+        role: string
+      ) => {
         set({ loading: true, error: null });
         try {
           let url;
           if (role === "business") {
-            url = `${import.meta.env.VITE_API_URL}/api/subscription/my-payments/`;
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/my-payments/`;
           } else {
-            url = `${import.meta.env.VITE_API_URL}/api/subscription/admin/users/${id}/payments/`;
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/admin/users/${id}/payments/`;
           }
 
           const response = await fetch(url, {
@@ -116,7 +142,10 @@ export const useBillingStore = create<BillingState>()(
           set({ selectedPayment: data });
         } catch (error) {
           set({
-            error: error instanceof Error ? error.message : "Failed to fetch payment details",
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to fetch payment details",
           });
           throw error;
         } finally {
@@ -124,10 +153,61 @@ export const useBillingStore = create<BillingState>()(
         }
       },
 
+      addPayment: async (
+        userId: string | number,
+        amount: string | number,
+        transactionId: string,
+        accessToken: string,
+        role: string
+      ) => {
+        try {
+          set({ loading: true, error: null });
+
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/subscription/admin/payments/`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
+                user: Number(userId),
+                amount: Number(amount),
+                transaction_id: transactionId,
+              }),
+            }
+          );
+
+          if (!response.ok) {
+            let errorMessage = "Failed to add payment";
+            try {
+              const errorData = await response.json();
+              if (errorData?.message) errorMessage = errorData.message;
+            } catch {
+              // ignoring errors
+            }
+            throw new Error(errorMessage);
+          }
+
+          // invoices after adding payment
+          await useBillingStore.getState().fetchPayments(accessToken, role);
+          set({ loading: false });
+        } catch (error: any) {
+          set({
+            error: error.message || "Failed to add payment",
+            loading: false,
+          });
+          throw error;
+        }
+      },
+
       updatePaymentStatus: async (paymentId, status, accessToken) => {
         try {
           const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/subscription/admin/payments/${paymentId}/status/`,
+            `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/admin/payments/${paymentId}/status/`,
             {
               method: "PATCH",
               headers: {
@@ -142,7 +222,7 @@ export const useBillingStore = create<BillingState>()(
             throw new Error("Failed to update payment status");
           }
 
-          // Refresh payments after update
+          // payments after update
           const { fetchPayments } = useBillingStore.getState();
           await fetchPayments(accessToken, "admin");
         } catch (error) {

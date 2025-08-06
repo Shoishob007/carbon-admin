@@ -8,28 +8,17 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   FileText,
-  Users,
   Receipt,
   CheckCircle,
   XCircle,
-  Calendar,
-  Download,
   DollarSign,
   Loader2,
   Plus,
+  CreditCard,
+  Edit,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -50,6 +39,13 @@ import {
 import { usePagination } from "@/hooks/usePagination";
 import { Pagination } from "@/components/Pagination";
 import PaymentDetailsDialog from "@/components/PaymentDetailsDialogue";
+import { useInvoiceStore } from "@/store/invoiceStore";
+import InvoiceDetailsDialog from "@/components/InvoiceDetailsDialogue";
+import { Invoice } from "@/types/billing";
+import AddPaymentDialog from "@/components/AddPaymentDialogue";
+import AddInvoicePaymentDialog from "@/components/AddInvoicePaymentDialogue";
+import UpdateInvoiceDialog from "@/components/UpdateInvoiceDialogue";
+import CreateInvoiceDialog from "@/components/CreateInvoiceDialogue";
 
 interface SubscriptionDetails {
   plan_name?: string;
@@ -70,142 +66,49 @@ interface Payment {
   subscription_details?: SubscriptionDetails;
 }
 
-interface Invoice {
-  id: number;
-  customer: string;
-  date: string;
-  due: string;
-  amount: number;
-  status: "paid" | "due" | "overdue";
-  invoiceNumber: string;
-  url: string;
-}
-
-// Demo Data for invoices
-const initialInvoices: Invoice[] = [
-  {
-    id: 101,
-    customer: "EcoTech Solutions",
-    date: "2025-07-15",
-    due: "2025-08-15",
-    amount: 89,
-    status: "paid",
-    invoiceNumber: "INV-2025-0715-01",
-    url: "#",
-  },
-  {
-    id: 102,
-    customer: "Green Manufacturing Co",
-    date: "2025-07-12",
-    due: "2025-08-12",
-    amount: 299,
-    status: "due",
-    invoiceNumber: "INV-2025-0712-01",
-    url: "#",
-  },
-  {
-    id: 103,
-    customer: "Sustainable Logistics Ltd",
-    date: "2025-06-20",
-    due: "2025-07-20",
-    amount: 29,
-    status: "overdue",
-    invoiceNumber: "INV-2025-0620-01",
-    url: "#",
-  },
-  {
-    id: 104,
-    customer: "Renewable Energy Inc",
-    date: "2025-08-01",
-    due: "2025-09-01",
-    amount: 150,
-    status: "paid",
-    invoiceNumber: "INV-2025-0801-01",
-    url: "#",
-  },
-  {
-    id: 105,
-    customer: "Clean Water Systems",
-    date: "2025-07-25",
-    due: "2025-08-25",
-    amount: 75,
-    status: "due",
-    invoiceNumber: "INV-2025-0725-01",
-    url: "#",
-  },
-  {
-    id: 106,
-    customer: "Solar Power Co",
-    date: "2025-06-15",
-    due: "2025-07-15",
-    amount: 200,
-    status: "overdue",
-    invoiceNumber: "INV-2025-0615-01",
-    url: "#",
-  },
-  {
-    id: 107,
-    customer: "Wind Energy Ltd",
-    date: "2025-08-05",
-    due: "2025-09-05",
-    amount: 180,
-    status: "paid",
-    invoiceNumber: "INV-2025-0805-01",
-    url: "#",
-  },
-  {
-    id: 108,
-    customer: "Eco Packaging",
-    date: "2025-07-18",
-    due: "2025-08-18",
-    amount: 95,
-    status: "due",
-    invoiceNumber: "INV-2025-0718-01",
-    url: "#",
-  },
-  {
-    id: 109,
-    customer: "Green Construction",
-    date: "2025-06-30",
-    due: "2025-07-30",
-    amount: 350,
-    status: "overdue",
-    invoiceNumber: "INV-2025-0630-01",
-    url: "#",
-  },
-  {
-    id: 110,
-    customer: "Organic Farms",
-    date: "2025-08-10",
-    due: "2025-09-10",
-    amount: 120,
-    status: "paid",
-    invoiceNumber: "INV-2025-0810-01",
-    url: "#",
-  },
-];
-
 export default function Billing() {
   const {
     payments,
-    loading,
-    error,
+    loading: paymentsLoading,
+    error: paymentsError,
     selectedPayment,
     fetchPayments,
     fetchPaymentById,
     clearSelectedPayment,
     updatePaymentStatus,
+    addPayment,
   } = useBillingStore();
+
+  const {
+    invoices,
+    loading: invoicesLoading,
+    error: invoicesError,
+    selectedInvoice,
+    fetchInvoices,
+    fetchInvoiceById,
+    clearSelectedInvoice,
+    updateInvoicePayment,
+    updateInvoiceInfo,
+    createInvoice,
+  } = useInvoiceStore();
+
   const { accessToken } = useAuthStore();
   const role = useAuthStore((state) => state.user?.role);
-  const [invoices] = useState(initialInvoices);
+
+  // Dialog states
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isAddPaymentDialogOpen, setIsAddPaymentDialogOpen] = useState(false);
-  const [newPayment, setNewPayment] = useState({
-    user: "",
-    amount: "",
-    transaction_id: "",
-  });
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [isAddInvoicePaymentDialogOpen, setIsAddInvoicePaymentDialogOpen] =
+    useState(false);
+  const [isUpdateInvoiceDialogOpen, setIsUpdateInvoiceDialogOpen] =
+    useState(false);
+  const [isCreateInvoiceDialogOpen, setIsCreateInvoiceDialogOpen] =
+    useState(false);
+
+  // Current states
+  const [currentInvoiceId, setCurrentInvoiceId] = useState<number | null>(null);
+  const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // pagination for payments
@@ -215,8 +118,7 @@ export default function Billing() {
     paginate: paginatePayments,
     goToPage: goToPaymentsPage,
     handleItemsPerPageChange: handlePaymentsItemsPerPageChange,
-    getPageNumbers: getPaymentsPageNumbers,
-  } = usePagination<Payment>(10)
+  } = usePagination<Payment>(5);
 
   // for invoices
   const {
@@ -225,8 +127,7 @@ export default function Billing() {
     paginate: paginateInvoices,
     goToPage: goToInvoicesPage,
     handleItemsPerPageChange: handleInvoicesItemsPerPageChange,
-    getPageNumbers: getInvoicesPageNumbers,
-  } =  usePagination<Invoice>(5);
+  } = usePagination<Invoice>(5);
 
   // Get paginated payments
   const {
@@ -250,8 +151,9 @@ export default function Billing() {
   useEffect(() => {
     if (accessToken && role) {
       fetchPayments(accessToken, role);
+      fetchInvoices(accessToken, role);
     }
-  }, [accessToken, role, fetchPayments]);
+  }, [accessToken, role, fetchPayments, fetchInvoices]);
 
   const pendingPayments = payments.filter(
     (p) => p.payment_status === "pending"
@@ -278,44 +180,42 @@ export default function Billing() {
     }
   };
 
-  const handleCloseDialog = () => {
+  const handleViewInvoiceDetails = async (invoiceId: number) => {
+    if (accessToken) {
+      console.log("invoiceId :: ", invoiceId);
+      await fetchInvoiceById(invoiceId, accessToken);
+      setIsInvoiceDialogOpen(true);
+    }
+  };
+
+  const handleClosePaymentDialog = () => {
     setIsPaymentDialogOpen(false);
     clearSelectedPayment();
   };
 
-  const handleAddPayment = async () => {
-    if (!accessToken || role !== "super_admin") return;
+  const handleCloseInvoiceDialog = () => {
+    setIsInvoiceDialogOpen(false);
+    clearSelectedInvoice();
+  };
+
+  // Payment handlers
+  const handleAddPayment = async (payment: {
+    user: string;
+    amount: string;
+    transaction_id: string;
+  }) => {
+    if (!accessToken) return;
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/subscription/admin/payments/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            user: parseInt(newPayment.user),
-            amount: parseFloat(newPayment.amount),
-            transaction_id: newPayment.transaction_id,
-          }),
-        }
+      await addPayment(
+        payment.user,
+        payment.amount,
+        payment.transaction_id,
+        accessToken,
+        role
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to add payment");
-      }
-
-      // Refresh payments
-      await fetchPayments(accessToken, role);
       setIsAddPaymentDialogOpen(false);
-      setNewPayment({
-        user: "",
-        amount: "",
-        transaction_id: "",
-      });
     } catch (error) {
       console.error("Error adding payment:", error);
     } finally {
@@ -323,7 +223,93 @@ export default function Billing() {
     }
   };
 
-  if (loading && payments.length === 0) {
+  // Invoice payment handlers
+  const handleAddInvoicePayment = async (payment: {
+    amount: string;
+    transaction_id: string;
+    notes: string;
+  }) => {
+    if (!accessToken || role !== "super_admin" || !currentInvoiceId) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateInvoicePayment(
+        currentInvoiceId,
+        payment.amount,
+        payment.transaction_id,
+        payment.notes,
+        accessToken
+      );
+      setIsAddInvoicePaymentDialogOpen(false);
+      setCurrentInvoiceId(null);
+    } catch (error) {
+      console.error("Error adding invoice payment:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenAddInvoicePayment = (invoice: Invoice) => {
+    setCurrentInvoiceId(invoice.id);
+    setIsAddInvoicePaymentDialogOpen(true);
+  };
+
+  // Update invoice handlers
+  const handleUpdateInvoice = async (invoiceData: {
+    total_amount: string;
+    due_date: string;
+    description: string;
+    message: string;
+    status: string;
+  }) => {
+    if (!accessToken || role !== "super_admin" || !currentInvoiceId) return;
+
+    setIsSubmitting(true);
+    try {
+      await updateInvoiceInfo(currentInvoiceId, invoiceData, accessToken);
+      setIsUpdateInvoiceDialogOpen(false);
+      setCurrentInvoiceId(null);
+      setCurrentInvoice(null);
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenUpdateInvoice = (invoice: Invoice) => {
+    setCurrentInvoice(invoice);
+    setCurrentInvoiceId(invoice.id);
+    setIsUpdateInvoiceDialogOpen(true);
+  };
+
+  // Create invoice handlers
+  const handleCreateInvoice = async (invoiceData: {
+    user: number;
+    subscription: number;
+    total_amount: string;
+    due_date: string;
+    description: string;
+    message: string;
+    status: string;
+  }) => {
+    if (!accessToken || role !== "super_admin") return;
+
+    setIsSubmitting(true);
+    try {
+      await createInvoice(invoiceData, accessToken);
+      setIsCreateInvoiceDialogOpen(false);
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (
+    (paymentsLoading || invoicesLoading) &&
+    (payments.length === 0 || invoices.length === 0)
+  ) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -331,10 +317,10 @@ export default function Billing() {
     );
   }
 
-  if (error) {
+  if (paymentsError || invoicesError) {
     return (
       <div className="flex items-center justify-center h-screen text-red-500">
-        Error: {error}
+        Error: {paymentsError || invoicesError}
       </div>
     );
   }
@@ -352,88 +338,26 @@ export default function Billing() {
               : "Manage customer billing information and review invoices"}
           </p>
         </div>
-        {role === "super_admin" && (
-          <Dialog
-            open={isAddPaymentDialogOpen}
-            onOpenChange={setIsAddPaymentDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <Button className="bg-carbon-gradient hover:bg-carbon-600">
+        <div className="flex gap-2">
+          {role === "super_admin" && (
+            <>
+              <Button
+                onClick={() => setIsAddPaymentDialogOpen(true)}
+                className="bg-carbon-gradient hover:bg-carbon-600"
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Payment
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-background border">
-              <DialogHeader className="text-center">
-                <DialogTitle>Add New Payment</DialogTitle>
-                <DialogDescription>
-                  Create a new payment record for a customer
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4 max-h-96 overflow-y-auto px-4">
-                <div className="space-y-2">
-                  <Label htmlFor="user-id">User ID</Label>
-                  <Input
-                    id="user-id"
-                    type="number"
-                    value={newPayment.user}
-                    onChange={(e) =>
-                      setNewPayment({ ...newPayment, user: e.target.value })
-                    }
-                    placeholder="Enter user ID"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    value={newPayment.amount}
-                    onChange={(e) =>
-                      setNewPayment({ ...newPayment, amount: e.target.value })
-                    }
-                    placeholder="Enter amount"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="transaction-id">Transaction ID</Label>
-                  <Input
-                    id="transaction-id"
-                    value={newPayment.transaction_id}
-                    onChange={(e) =>
-                      setNewPayment({
-                        ...newPayment,
-                        transaction_id: e.target.value,
-                      })
-                    }
-                    placeholder="Enter transaction ID"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-center px-4 pb-4">
-                <Button
-                  onClick={handleAddPayment}
-                  className="bg-carbon-gradient w-full"
-                  disabled={
-                    isSubmitting ||
-                    !newPayment.user ||
-                    !newPayment.amount ||
-                    !newPayment.transaction_id
-                  }
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    "Add Payment"
-                  )}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
+              <Button
+                onClick={() => setIsCreateInvoiceDialogOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Invoice
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Statistics Cards */}
@@ -605,7 +529,7 @@ export default function Billing() {
               )}
             </TableBody>
           </Table>
-          
+
           {/* Payments Pagination */}
           {payments.length > 0 && (
             <Pagination
@@ -623,15 +547,6 @@ export default function Billing() {
         </CardContent>
       </Card>
 
-      {/* Payment Details Dialog Component */}
-      <PaymentDetailsDialog
-        isOpen={isPaymentDialogOpen}
-        onClose={handleCloseDialog}
-        selectedPayment={selectedPayment}
-        loading={loading}
-        role={role}
-      />
-
       {/* Invoices Table */}
       <Card>
         <CardHeader>
@@ -648,73 +563,103 @@ export default function Billing() {
               <TableRow>
                 <TableHead>Invoice #</TableHead>
                 <TableHead>Customer</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Amount</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Total Amount</TableHead>
+                <TableHead>Paid</TableHead>
+                <TableHead>Due Date</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Download</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedInvoices.map((inv) => (
-                <TableRow key={inv.id}>
+              {paginatedInvoices.map((invoice) => (
+                <TableRow key={invoice.id}>
                   <TableCell className="font-mono">
-                    {inv.invoiceNumber}
+                    {invoice.invoice_number}
                   </TableCell>
-                  <TableCell>{inv.customer}</TableCell>
-                  <TableCell>{inv.date}</TableCell>
-                  <TableCell>{inv.due}</TableCell>
-                  <TableCell>${inv.amount}</TableCell>
+                  <TableCell>
+                    <div>{invoice.user_email}</div>
+                    <div className="text-sm text-muted-foreground">
+                      User ID: {invoice.user}
+                    </div>
+                  </TableCell>
+                  <TableCell>{invoice.subscription_plan}</TableCell>
+                  <TableCell>${invoice.total_amount}</TableCell>
+                  <TableCell>
+                    ${invoice.paid_amount} (
+                    {invoice.payment_percentage.toFixed(0)}%)
+                  </TableCell>
+                  <TableCell>
+                    {new Date(invoice.due_date).toLocaleDateString()}
+                  </TableCell>
                   <TableCell>
                     <Badge
                       variant={
-                        inv.status === "paid"
+                        invoice.is_fully_paid
                           ? "default"
-                          : inv.status === "due"
+                          : invoice.status === "partial"
                           ? "secondary"
                           : "destructive"
                       }
                       className={
-                        inv.status === "paid"
+                        invoice.is_fully_paid
                           ? "bg-green-500"
-                          : inv.status === "due"
+                          : invoice.status === "partial"
                           ? "bg-yellow-500"
                           : "bg-red-500"
                       }
                     >
-                      {inv.status === "paid" ? (
+                      {invoice.is_fully_paid ? (
                         <span className="flex items-center gap-1">
                           <CheckCircle className="w-4 h-4" /> Paid
                         </span>
-                      ) : inv.status === "due" ? (
+                      ) : invoice.status === "partial" ? (
                         <span className="flex items-center gap-1">
-                          <FileText className="w-4 h-4" /> Due
+                          <FileText className="w-4 h-4" /> Partial
                         </span>
                       ) : (
                         <span className="flex items-center gap-1">
-                          <XCircle className="w-4 h-4" /> Overdue
+                          <XCircle className="w-4 h-4" /> Unpaid
                         </span>
                       )}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="flex gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
-                      asChild
-                      disabled={inv.url === "#"}
+                      onClick={() => handleViewInvoiceDetails(invoice.id)}
                     >
-                      <a href={inv.url} download>
-                        <Download className="h-4 w-4" />
-                      </a>
+                      <FileText className="h-4 w-4" />
+                      Details
                     </Button>
+                    {role === "super_admin" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenUpdateInvoice(invoice)}
+                      >
+                        <Edit className="h-4 w-4" />
+                        Update
+                      </Button>
+                    )}
+                    {!invoice.is_fully_paid && role === "super_admin" && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenAddInvoicePayment(invoice)}
+                      >
+                        <CreditCard className="h-4 w-4" />
+                        Add Payment
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
               {invoices.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={8}
                     className="text-center text-muted-foreground"
                   >
                     No invoices found.
@@ -723,7 +668,7 @@ export default function Billing() {
               )}
             </TableBody>
           </Table>
-          
+
           {/* Invoices Pagination */}
           {invoices.length > 0 && (
             <Pagination
@@ -740,6 +685,62 @@ export default function Billing() {
           )}
         </CardContent>
       </Card>
+
+      {/* All Dialog Components */}
+      <PaymentDetailsDialog
+        isOpen={isPaymentDialogOpen}
+        onClose={handleClosePaymentDialog}
+        selectedPayment={selectedPayment}
+        loading={paymentsLoading}
+        role={role}
+      />
+
+      <InvoiceDetailsDialog
+        isOpen={isInvoiceDialogOpen}
+        onClose={handleCloseInvoiceDialog}
+        selectedInvoice={selectedInvoice}
+        loading={invoicesLoading}
+        role={role}
+      />
+
+      <AddPaymentDialog
+        isOpen={isAddPaymentDialogOpen}
+        onClose={() => setIsAddPaymentDialogOpen(false)}
+        onAddPayment={handleAddPayment}
+        isSubmitting={isSubmitting}
+      />
+
+      <AddInvoicePaymentDialog
+        isOpen={isAddInvoicePaymentDialogOpen}
+        onClose={() => {
+          setIsAddInvoicePaymentDialogOpen(false);
+          setCurrentInvoiceId(null);
+        }}
+        onAddPayment={handleAddInvoicePayment}
+        isSubmitting={isSubmitting}
+        invoiceNumber={
+          invoices.find((inv) => inv.id === currentInvoiceId)?.invoice_number
+        }
+      />
+
+      <UpdateInvoiceDialog
+        isOpen={isUpdateInvoiceDialogOpen}
+        onClose={() => {
+          setIsUpdateInvoiceDialogOpen(false);
+          setCurrentInvoiceId(null);
+          setCurrentInvoice(null);
+        }}
+        onUpdateInvoice={handleUpdateInvoice}
+        isSubmitting={isSubmitting}
+        invoice={currentInvoice}
+      />
+
+      <CreateInvoiceDialog
+        isOpen={isCreateInvoiceDialogOpen}
+        onClose={() => setIsCreateInvoiceDialogOpen(false)}
+        onCreateInvoice={handleCreateInvoice}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 }
