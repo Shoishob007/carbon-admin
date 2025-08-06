@@ -25,7 +25,11 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
-
+  changePassword: (
+    userId: number,
+    newPassword: string,
+    accessToken: string
+  ) => Promise<void>;
   logout: () => void;
 }
 
@@ -124,6 +128,55 @@ export const useAuthStore = create<AuthState>()(
           throw new Error(errorMessage);
         }
       },
+      changePassword: async (userId: number, newPassword: string, accessToken: string) => {
+        try {
+          console.log("Attempting to change password for user:", userId);
+          console.log("API URL:", `${import.meta.env.VITE_API_URL}/api/users/reset-password/${userId}/`);
+          
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/users/reset-password/${userId}/`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
+                new_password: newPassword,
+              }),
+            }
+          );
+
+          console.log("Response status:", response.status);
+          console.log("Response ok:", response.ok);
+
+          if (!response.ok) {
+            let errorMessage = "Failed to change password";
+            try {
+              const errorData = await response.json();
+              console.log("Error response data:", errorData);
+              errorMessage = errorData.message || errorData.error || errorMessage;
+            } catch (parseError) {
+              console.log("Could not parse error response");
+              errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            throw new Error(errorMessage);
+          }
+
+          // Success
+          try {
+            const data = await response.json();
+            console.log("Success response data:", data);
+          } catch (parseError) {
+            console.log("No response data");
+          }
+
+        } catch (error) {
+          console.error("Error changing password:", error);
+          throw error;
+        }
+      },
+
       logout: async () => {
         const accessToken = get().accessToken;
         try {

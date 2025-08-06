@@ -4,8 +4,8 @@ import { immer } from "zustand/middleware/immer";
 
 interface Profile {
   emission_lab_key: string;
-  api_requests_made: number;
-  total_requests_limit: number;
+  api_requests_made: number | string;
+  total_requests_limit: number | string;
   created_at: string;
   updated_at: string;
 }
@@ -25,6 +25,9 @@ interface BusinessProfile {
 }
 
 interface User {
+    id: number;
+
+  [x: string]: any;
   email: string;
   name: string;
   role: "business" | "super_admin" | "individual";

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useUserStore } from "@/store/userStore";
 import { useAuthStore } from "@/store/auth";
 import {
@@ -20,12 +20,20 @@ import {
   Loader2,
   AlertCircle,
   Zap,
+  Lock,
+  User2,
+  InfoIcon,
 } from "lucide-react";
 import NotificationSettings from "./NotificationSettings";
 import ApiKeyManager from "./ApiKeyManager";
 import { toast } from "sonner";
 
 export default function BusinessUserSettings() {
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+  const changePassword = useAuthStore((state) => state.changePassword);
+
   const {
     user,
     loading,
@@ -35,6 +43,8 @@ export default function BusinessUserSettings() {
     updateBusinessProfile,
     regenerateApiKey,
   } = useUserStore();
+
+  console.log("User :: ", user)
 
   const { accessToken } = useAuthStore();
 
@@ -141,6 +151,44 @@ export default function BusinessUserSettings() {
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
+  const handlePasswordChange = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
+      console.log("handlePasswordChange triggered");
+
+      if (!user) {
+        toast.error("User not found");
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        toast.error("Passwords do not match");
+        return;
+      }
+
+      if (newPassword.length < 5) {
+        toast.error("Password must be at least 5 characters");
+        return;
+      }
+
+      try {
+        setIsPasswordLoading(true);
+        await changePassword(user.id, newPassword, accessToken);
+        toast.success("Password changed successfully");
+        setNewPassword("");
+        setConfirmPassword("");
+      } catch (error) {
+        console.error("Password change error:", error);
+        toast.error(
+          error instanceof Error ? error.message : "Failed to change password"
+        );
+      } finally {
+        setIsPasswordLoading(false);
+      }
+    },
+    [newPassword, confirmPassword, user, accessToken, changePassword]
+  );
+
   if (loading && !user) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -171,22 +219,24 @@ export default function BusinessUserSettings() {
       <div className="space-y-2">
         <h1 className="text-3xl font-bold">Business Profile</h1>
         <p className="text-muted-foreground">
-          Update your personal and business information
+          Manage your personal and business information
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5 text-primary" />
+            <InfoIcon className="h-5 w-5 text-primary" />
             Profile Information
           </CardTitle>
-          <CardDescription>All fields are required</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-6">
-              <h3 className="text-lg font-medium">Personal Information</h3>
+            <div className="space-y-6 pt-6">
+              <h3 className="text-lg font-medium flex items-center gap-2">
+                <User className="h-5 w-5 text-primary" />
+                Personal Information
+              </h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
@@ -345,6 +395,56 @@ export default function BusinessUserSettings() {
                   </>
                 ) : (
                   "Save Changes"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Password Change Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-primary" />
+            Change Password
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={5}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={5}
+                />
+              </div>
+            </div>
+            <div className="flex justify-start">
+              <Button type="submit" disabled={isPasswordLoading}>
+                {isPasswordLoading ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                    Changing...
+                  </>
+                ) : (
+                  "Change Password"
                 )}
               </Button>
             </div>

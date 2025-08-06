@@ -129,7 +129,7 @@ export default function Billing() {
     handleItemsPerPageChange: handleInvoicesItemsPerPageChange,
   } = usePagination<Invoice>(5);
 
-  // Get paginated payments
+  // paginated payments
   const {
     paginatedItems: paginatedPayments,
     totalItems: totalPaymentsCount,
@@ -138,7 +138,7 @@ export default function Billing() {
     endIndex: paymentsEndIndex,
   } = paginatePayments(payments);
 
-  // Get paginated invoices
+  // paginated invoices
   const {
     paginatedItems: paginatedInvoices,
     totalItems: totalInvoicesCount,
@@ -147,7 +147,7 @@ export default function Billing() {
     endIndex: invoicesEndIndex,
   } = paginateInvoices(invoices);
 
-  // Fetch payments on component mount
+  // payments on component mount
   useEffect(() => {
     if (accessToken && role) {
       fetchPayments(accessToken, role);
@@ -182,7 +182,6 @@ export default function Billing() {
 
   const handleViewInvoiceDetails = async (invoiceId: number) => {
     if (accessToken) {
-      console.log("invoiceId :: ", invoiceId);
       await fetchInvoiceById(invoiceId, accessToken);
       setIsInvoiceDialogOpen(true);
     }
@@ -283,7 +282,7 @@ export default function Billing() {
     setIsUpdateInvoiceDialogOpen(true);
   };
 
-  // Create invoice handlers
+  // invoice handlers
   const handleCreateInvoice = async (invoiceData: {
     user: number;
     subscription: number;
@@ -686,7 +685,7 @@ export default function Billing() {
         </CardContent>
       </Card>
 
-      {/* All Dialog Components */}
+      {/* Dialog Components */}
       <PaymentDetailsDialog
         isOpen={isPaymentDialogOpen}
         onClose={handleClosePaymentDialog}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Lock, Zap, Globe, Bell } from "lucide-react";
+import { User, Zap, Globe, Bell, Lock, User2, InfoIcon, Loader2 } from "lucide-react";
 import NotificationSettings from "./NotificationSettings";
 import ApiKeyManager from "./ApiKeyManager";
 import { useAuthStore } from "@/store/auth";
@@ -41,6 +41,10 @@ export default function SuperAdminSettings() {
     newPassword: "",
     confirmPassword: "",
   });
+    const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isPasswordLoading, setIsPasswordLoading] = useState(false);
+  const changePassword = useAuthStore((state) => state.changePassword);
 
   const [integrationSettings, setIntegrationSettings] =
     useState<IntegrationSettings>({
@@ -103,6 +107,46 @@ export default function SuperAdminSettings() {
     toast.success("Integration settings saved");
   };
 
+  
+    const handlePasswordChange = useCallback(
+      async (e: React.FormEvent) => {
+        e.preventDefault();
+        console.log("handlePasswordChange triggered");
+  
+        if (!user) {
+          toast.error("User not found");
+          return;
+        }
+  
+        if (newPassword !== confirmPassword) {
+          toast.error("Passwords do not match");
+          return;
+        }
+  
+        if (newPassword.length < 5) {
+          toast.error("Password must be at least 5 characters");
+          return;
+        }
+  
+        try {
+          setIsPasswordLoading(true);
+          await changePassword(user.id, newPassword, accessToken);
+          toast.success("Password changed successfully");
+          setNewPassword("");
+          setConfirmPassword("");
+        } catch (error) {
+          console.error("Password change error:", error);
+          toast.error(
+            error instanceof Error ? error.message : "Failed to change password"
+          );
+        } finally {
+          setIsPasswordLoading(false);
+        }
+      },
+      [newPassword, confirmPassword, user, accessToken, changePassword]
+    );
+  
+
   if (loading && !user) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
@@ -157,57 +201,6 @@ export default function SuperAdminSettings() {
               </div>
             </div>
 
-            {/* <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Lock className="h-5 w-5 text-primary" />
-                Change Password
-              </h3>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="currentPassword">Current Password</Label>
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    value={profileSettings.currentPassword}
-                    onChange={(e) =>
-                      setProfileSettings({
-                        ...profileSettings,
-                        currentPassword: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
-                  <Input
-                    id="newPassword"
-                    type="password"
-                    value={profileSettings.newPassword}
-                    onChange={(e) =>
-                      setProfileSettings({
-                        ...profileSettings,
-                        newPassword: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={profileSettings.confirmPassword}
-                    onChange={(e) =>
-                      setProfileSettings({
-                        ...profileSettings,
-                        confirmPassword: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            </div> */}
-
             <Button
               onClick={handleSaveProfile}
               className="mt-4"
@@ -217,6 +210,55 @@ export default function SuperAdminSettings() {
             </Button>
           </CardContent>
         </Card>
+
+              <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lock className="h-5 w-5 text-primary" />
+            Change Password
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handlePasswordChange} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={5}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={5}
+                />
+              </div>
+            </div>
+            <div className="flex justify-start">
+              <Button type="submit" disabled={isPasswordLoading}>
+                {isPasswordLoading ? (
+                  <>
+                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                    Changing...
+                  </>
+                ) : (
+                  "Change Password"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
         <NotificationSettings />
 
