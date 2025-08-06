@@ -29,6 +29,8 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { useBillingStore } from "@/store/billingStore";
+import { useMySubscriptionStore } from "@/store/mySubscription";
 
 const emissionData = [
   { month: "Jan", emissions: 2400, offset: 2000 },
@@ -48,9 +50,11 @@ const apiGrowthData = [
   { month: "Jun", calls: 4100 },
 ];
 
-export default function AdminDashboard() {
+export default function BusinessDashbard() {
   const user = useUserStore((s) => s.user);
-  // console.log("user :: ", user)
+  const { payments } = useBillingStore();
+  const { subscription } = useMySubscriptionStore();
+  console.log("My subscription plan :: ", user.profile?.api_requests_made);
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     year: "numeric",
@@ -58,7 +62,41 @@ export default function AdminDashboard() {
     day: "numeric",
   });
 
-  console.log("user?.profile ::: ", user?.profile?.total_requests_limit)
+  // recent payment
+  const lastPayment = payments.length > 0 ? payments[0] : null;
+
+  // next billing date
+  const getNextBillingDate = (paymentDate: string, frequency: string) => {
+    if (!paymentDate) return null;
+
+    const date = new Date(paymentDate);
+    if (frequency === "monthly") {
+      date.setMonth(date.getMonth() + 1);
+    } else if (frequency === "yearly") {
+      date.setFullYear(date.getFullYear() + 1);
+    }
+    return date;
+  };
+
+  // Formatted date for display
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "No payments yet";
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    };
+    return new Date(dateString).toLocaleDateString("en-US", options);
+  };
+
+  const nextBillingDate = lastPayment
+    ? getNextBillingDate(
+        lastPayment.payment_date,
+        lastPayment.subscription_details?.payment_frequency
+      )
+    : null;
+
+  // console.log("user?.profile ::: ", user?.profile?.total_requests_limit);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -85,13 +123,13 @@ export default function AdminDashboard() {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              API Calls This Month
+              API Calls Made
             </CardTitle>
             <Server className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {user?.profile?.api_requests_made || 0}
+              {user.profile?.api_requests_made}
             </div>
             <div className="flex flex-col gap-2 text-xs text-muted-foreground">
               {user?.profile?.total_requests_limit ? (
@@ -104,12 +142,10 @@ export default function AdminDashboard() {
                     }
                     className="h-2 mr-2 w-full"
                   />
-                  {Math.round(
-                    (user.profile.api_requests_made /
+                    {(user.profile.api_requests_made /
                       user.profile.total_requests_limit) *
-                      100
-                  )}
-                  % of limit
+                      100}
+                  % of your limit
                 </>
               ) : (
                 "Unlimited plan"
@@ -153,15 +189,28 @@ export default function AdminDashboard() {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Next Billing Date
+              {lastPayment ? "Last Payment" : "Payment Information"}
             </CardTitle>
             <Calendar className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">Aug 1, 2025</div>
-            <div className="text-xs text-muted-foreground">
-              Estimated: $49.00
-            </div>
+            {lastPayment ? (
+              <>
+                <div className="text-2xl font-bold text-purple-600">
+                  ${lastPayment.amount}
+                </div>
+                {nextBillingDate && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Possible next billing:{" "}
+                    {formatDate(nextBillingDate.toISOString())}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-2xl font-bold text-purple-600">
+                No payments yet
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

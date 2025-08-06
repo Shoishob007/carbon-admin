@@ -70,7 +70,7 @@ const baseMenuItems: MenuItem[] = [
     roles: ["super_admin"],
     hasSubItems: false,
   },
-    {
+  {
     title: "Subscriptions",
     url: "/subscriptions",
     icon: CreditCard,
@@ -105,7 +105,7 @@ const baseMenuItems: MenuItem[] = [
     roles: ["super_admin"],
     hasSubItems: false,
   },
-    {
+  {
     title: "Contact Admin",
     url: "/contact",
     icon: Mail,
@@ -160,19 +160,19 @@ export function AdminSidebar() {
     return location.pathname === url || location.pathname.startsWith(url + "/");
   };
 
-  // Process menu items with dynamic sub-items
+  // menu items with dynamic sub-items
   const processedMenuItems = baseMenuItems.map((item) => {
     if (item.title === "Subscriptions" && item.hasSubItems && role) {
       return {
         ...item,
-        hasSubItems: true, // keep discriminant
+        hasSubItems: true,
         subItems: getSubscriptionItems(role),
       };
     }
     return item;
   });
 
-  // Filter items based on user role
+  // items based on user role
   const filteredMenuItems = processedMenuItems.filter(
     (item) => !item.roles || item.roles.includes(role)
   );
@@ -192,9 +192,19 @@ export function AdminSidebar() {
             <h2 className="text-lg font-semibold text-sidebar-foreground">
               Emission Lab{" "}
             </h2>
-            <p className="text-sm text-sidebar-foreground/70">
-              Admin Dashboard
-            </p>
+            {role === "super_admin" ? (
+              <p className="text-sm text-sidebar-foreground/70">
+                Admin Dashboard
+              </p>
+            ) : role === "individual" ? (
+              <p className="text-sm text-sidebar-foreground/70">
+                User Dashboard
+              </p>
+            ) : (
+              <p className="text-sm text-sidebar-foreground/70">
+                Business Dashboard
+              </p>
+            )}
           </div>
         </div>
       </SidebarHeader>

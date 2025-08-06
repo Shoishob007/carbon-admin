@@ -355,7 +355,7 @@ export default function MySubscription() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 px-4 py-6">
+    <div className="mx-auto space-y-8 px-4 py-6">
       {/* Header Section */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">

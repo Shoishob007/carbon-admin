@@ -47,9 +47,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePagination } from "@/hooks/usePagination";
+import { Pagination } from "@/components/Pagination";
+import PaymentDetailsDialog from "@/components/PaymentDetailsDialogue";
+
+interface SubscriptionDetails {
+  plan_name?: string;
+  payment_frequency?: string;
+  status?: string;
+}
+
+interface Payment {
+  id: number;
+  user: number;
+  user_name?: string;
+  user_email?: string;
+  amount: string;
+  payment_date?: string;
+  payment_status: string;
+  transaction_id?: string;
+  payment_method?: string;
+  subscription_details?: SubscriptionDetails;
+}
+
+interface Invoice {
+  id: number;
+  customer: string;
+  date: string;
+  due: string;
+  amount: number;
+  status: "paid" | "due" | "overdue";
+  invoiceNumber: string;
+  url: string;
+}
 
 // Demo Data for invoices
-const initialInvoices = [
+const initialInvoices: Invoice[] = [
   {
     id: 101,
     customer: "EcoTech Solutions",
@@ -80,6 +113,76 @@ const initialInvoices = [
     invoiceNumber: "INV-2025-0620-01",
     url: "#",
   },
+  {
+    id: 104,
+    customer: "Renewable Energy Inc",
+    date: "2025-08-01",
+    due: "2025-09-01",
+    amount: 150,
+    status: "paid",
+    invoiceNumber: "INV-2025-0801-01",
+    url: "#",
+  },
+  {
+    id: 105,
+    customer: "Clean Water Systems",
+    date: "2025-07-25",
+    due: "2025-08-25",
+    amount: 75,
+    status: "due",
+    invoiceNumber: "INV-2025-0725-01",
+    url: "#",
+  },
+  {
+    id: 106,
+    customer: "Solar Power Co",
+    date: "2025-06-15",
+    due: "2025-07-15",
+    amount: 200,
+    status: "overdue",
+    invoiceNumber: "INV-2025-0615-01",
+    url: "#",
+  },
+  {
+    id: 107,
+    customer: "Wind Energy Ltd",
+    date: "2025-08-05",
+    due: "2025-09-05",
+    amount: 180,
+    status: "paid",
+    invoiceNumber: "INV-2025-0805-01",
+    url: "#",
+  },
+  {
+    id: 108,
+    customer: "Eco Packaging",
+    date: "2025-07-18",
+    due: "2025-08-18",
+    amount: 95,
+    status: "due",
+    invoiceNumber: "INV-2025-0718-01",
+    url: "#",
+  },
+  {
+    id: 109,
+    customer: "Green Construction",
+    date: "2025-06-30",
+    due: "2025-07-30",
+    amount: 350,
+    status: "overdue",
+    invoiceNumber: "INV-2025-0630-01",
+    url: "#",
+  },
+  {
+    id: 110,
+    customer: "Organic Farms",
+    date: "2025-08-10",
+    due: "2025-09-10",
+    amount: 120,
+    status: "paid",
+    invoiceNumber: "INV-2025-0810-01",
+    url: "#",
+  },
 ];
 
 export default function Billing() {
@@ -94,7 +197,6 @@ export default function Billing() {
     updatePaymentStatus,
   } = useBillingStore();
   const { accessToken } = useAuthStore();
-  console.log("My Payments :: ", payments);
   const role = useAuthStore((state) => state.user?.role);
   const [invoices] = useState(initialInvoices);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -106,6 +208,44 @@ export default function Billing() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // pagination for payments
+  const {
+    currentPage: paymentsCurrentPage,
+    itemsPerPage: paymentsItemsPerPage,
+    paginate: paginatePayments,
+    goToPage: goToPaymentsPage,
+    handleItemsPerPageChange: handlePaymentsItemsPerPageChange,
+    getPageNumbers: getPaymentsPageNumbers,
+  } = usePagination<Payment>(10)
+
+  // for invoices
+  const {
+    currentPage: invoicesCurrentPage,
+    itemsPerPage: invoicesItemsPerPage,
+    paginate: paginateInvoices,
+    goToPage: goToInvoicesPage,
+    handleItemsPerPageChange: handleInvoicesItemsPerPageChange,
+    getPageNumbers: getInvoicesPageNumbers,
+  } =  usePagination<Invoice>(5);
+
+  // Get paginated payments
+  const {
+    paginatedItems: paginatedPayments,
+    totalItems: totalPaymentsCount,
+    totalPages: totalPaymentsPages,
+    startIndex: paymentsStartIndex,
+    endIndex: paymentsEndIndex,
+  } = paginatePayments(payments);
+
+  // Get paginated invoices
+  const {
+    paginatedItems: paginatedInvoices,
+    totalItems: totalInvoicesCount,
+    totalPages: totalInvoicesPages,
+    startIndex: invoicesStartIndex,
+    endIndex: invoicesEndIndex,
+  } = paginateInvoices(invoices);
+
   // Fetch payments on component mount
   useEffect(() => {
     if (accessToken && role) {
@@ -113,17 +253,6 @@ export default function Billing() {
     }
   }, [accessToken, role, fetchPayments]);
 
-  // Statistics
-  const totalCustomers = role === "business" ? 1 : payments.length;
-  const activeCustomers =
-    role === "business"
-      ? payments.some((p) => p.subscription_details?.status === "active")
-        ? 1
-        : 0
-      : payments.filter((p) => p.subscription_details?.status === "active")
-          .length;
-
-  const totalPayments = payments.length;
   const pendingPayments = payments.filter(
     (p) => p.payment_status === "pending"
   ).length;
@@ -322,7 +451,7 @@ export default function Billing() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-carbon-700">
-              {totalPayments}
+              {payments.length}
             </div>
             <p className="text-xs text-muted-foreground">
               {pendingPayments} pending
@@ -389,7 +518,7 @@ export default function Billing() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {payments.map((payment) => (
+              {paginatedPayments.map((payment) => (
                 <TableRow key={payment.id}>
                   {role !== "business" && (
                     <TableCell className="font-medium">
@@ -476,234 +605,34 @@ export default function Billing() {
               )}
             </TableBody>
           </Table>
+          
+          {/* Payments Pagination */}
+          {payments.length > 0 && (
+            <Pagination
+              currentPage={paymentsCurrentPage}
+              totalPages={totalPaymentsPages}
+              onPageChange={goToPaymentsPage}
+              onItemsPerPageChange={handlePaymentsItemsPerPageChange}
+              itemsPerPage={paymentsItemsPerPage}
+              totalItems={totalPaymentsCount}
+              startIndex={paymentsStartIndex}
+              endIndex={paymentsEndIndex}
+              showItemsPerPage={true}
+            />
+          )}
         </CardContent>
       </Card>
 
-      {/* Payment Details Dialog */}
-      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
-        <DialogContent className="sm:max-w-[625px] max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Payment Details</DialogTitle>
-            <DialogDescription>
-              Detailed information about this payment record
-            </DialogDescription>
-          </DialogHeader>
+      {/* Payment Details Dialog Component */}
+      <PaymentDetailsDialog
+        isOpen={isPaymentDialogOpen}
+        onClose={handleCloseDialog}
+        selectedPayment={selectedPayment}
+        loading={loading}
+        role={role}
+      />
 
-          {selectedPayment ? (
-            <div className="flex-1 overflow-y-auto">
-              {/* Customer Information */}
-              {role !== "business" && (
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">
-                      Customer Name
-                    </Label>
-                    <p className="text-sm mt-1 font-medium">
-                      {selectedPayment.user_name || "N/A"}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">
-                      Customer Email
-                    </Label>
-                    <p className="text-sm mt-1 font-medium">
-                      {selectedPayment.user_email || "N/A"}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Payment Details */}
-              {selectedPayment.payments &&
-              selectedPayment.payments.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="border-t pt-4">
-                    <h4 className="text-lg font-semibold mb-3">
-                      Payment Information
-                    </h4>
-
-                    {selectedPayment.payments.map((payment) => (
-                      <div
-                        key={payment.id}
-                        className="space-y-4 mb-6 p-4 bg-gray-50 rounded-lg overflow-y-auto border-b-2"
-                      >
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700">
-                              Subscription Plan
-                            </Label>
-                            <p className="text-sm mt-1 font-medium">
-                              {payment.subscription_details?.plan_name || "N/A"}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {payment.subscription_details
-                                ?.payment_frequency || "N/A"}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700">
-                              Subscription Status
-                            </Label>
-                            <div className="mt-1">
-                              <Badge
-                                variant={
-                                  payment.subscription_details?.status ===
-                                  "active"
-                                    ? "default"
-                                    : "secondary"
-                                }
-                                className={
-                                  payment.subscription_details?.status ===
-                                  "active"
-                                    ? "bg-green-500"
-                                    : "bg-gray-500"
-                                }
-                              >
-                                {payment.subscription_details?.status
-                                  ? payment.subscription_details.status
-                                      .charAt(0)
-                                      .toUpperCase() +
-                                    payment.subscription_details.status.slice(1)
-                                  : "N/A"}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700">
-                              Amount
-                            </Label>
-                            <p className="text-sm mt-1 font-bold text-green-600">
-                              ${parseFloat(payment.amount || "0").toFixed(2)}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700">
-                              Payment Status
-                            </Label>
-                            <div className="mt-1">
-                              <Badge
-                                variant={
-                                  payment.payment_status === "completed"
-                                    ? "default"
-                                    : payment.payment_status === "pending"
-                                    ? "secondary"
-                                    : "destructive"
-                                }
-                                className={
-                                  payment.payment_status === "completed"
-                                    ? "bg-green-500"
-                                    : payment.payment_status === "pending"
-                                    ? "bg-yellow-500"
-                                    : "bg-red-500"
-                                }
-                              >
-                                {payment.payment_status
-                                  ? payment.payment_status
-                                      .charAt(0)
-                                      .toUpperCase() +
-                                    payment.payment_status.slice(1)
-                                  : "N/A"}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700">
-                              Payment Date
-                            </Label>
-                            <p className="text-sm mt-1 font-medium">
-                              {payment.payment_date
-                                ? new Date(
-                                    payment.payment_date
-                                  ).toLocaleDateString("en-US", {
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
-                                : "N/A"}
-                            </p>
-                          </div>
-                          <div>
-                            <Label className="text-sm font-medium text-gray-700">
-                              Transaction ID
-                            </Label>
-                            <p className="text-sm mt-1 font-mono bg-gray-100 px-2 py-1 rounded">
-                              {payment.transaction_id || "N/A"}
-                            </p>
-                          </div>
-                        </div>
-
-                        {payment.payment_method && (
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label className="text-sm font-medium text-gray-700">
-                                Payment Method
-                              </Label>
-                              <p className="text-sm mt-1 font-medium">
-                                {payment.payment_method}
-                              </p>
-                            </div>
-                            <div>
-                              <Label className="text-sm font-medium text-gray-700">
-                                User ID
-                              </Label>
-                              <p className="text-sm mt-1 font-medium">
-                                {payment.user}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Summary Information */}
-                  <div className="pt-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">
-                          Total Payments
-                        </Label>
-                        <p className="text-sm mt-1 font-bold">
-                          {selectedPayment.total_count || 0}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center text-muted-foreground py-8">
-                  <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>No payment details available</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          )}
-
-          <div className="pt-4 border-t">
-            <Button
-              variant="destructive"
-              onClick={handleCloseDialog}
-              className="w-full"
-            >
-              Close
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Invoices Table (keeping as is) */}
+      {/* Invoices Table */}
       <Card>
         <CardHeader>
           <CardTitle>Invoices</CardTitle>
@@ -727,7 +656,7 @@ export default function Billing() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.map((inv) => (
+              {paginatedInvoices.map((inv) => (
                 <TableRow key={inv.id}>
                   <TableCell className="font-mono">
                     {inv.invoiceNumber}
@@ -794,6 +723,21 @@ export default function Billing() {
               )}
             </TableBody>
           </Table>
+          
+          {/* Invoices Pagination */}
+          {invoices.length > 0 && (
+            <Pagination
+              currentPage={invoicesCurrentPage}
+              totalPages={totalInvoicesPages}
+              onPageChange={goToInvoicesPage}
+              onItemsPerPageChange={handleInvoicesItemsPerPageChange}
+              itemsPerPage={invoicesItemsPerPage}
+              totalItems={totalInvoicesCount}
+              startIndex={invoicesStartIndex}
+              endIndex={invoicesEndIndex}
+              showItemsPerPage={true}
+            />
+          )}
         </CardContent>
       </Card>
     </div>
