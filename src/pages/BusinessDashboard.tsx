@@ -17,6 +17,7 @@ import {
   CreditCard,
   Calendar,
   BarChart3,
+  Loader2,
 } from "lucide-react";
 import {
   LineChart,
@@ -31,6 +32,7 @@ import {
 } from "recharts";
 import { useBillingStore } from "@/store/billingStore";
 import { useMySubscriptionStore } from "@/store/mySubscription";
+import { useEffect } from "react";
 
 const emissionData = [
   { month: "Jan", emissions: 2400, offset: 2000 },
@@ -50,11 +52,19 @@ const apiGrowthData = [
   { month: "Jun", calls: 4100 },
 ];
 
-export default function BusinessDashbard() {
-  const user = useUserStore((s) => s.user);
+export default function BusinessDashboard() {
+  const { user, loading, fetchUserProfile } = useUserStore();
+  const { accessToken } = useAuthStore();
   const { payments } = useBillingStore();
   const { subscription } = useMySubscriptionStore();
-  // console.log("My subscription plan :: ", user.profile?.api_requests_made);
+
+  // Fetch user profile on component mount
+  useEffect(() => {
+    if (accessToken && !user) {
+      fetchUserProfile(accessToken);
+    }
+  }, [accessToken, user, fetchUserProfile]);
+
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     year: "numeric",
@@ -96,7 +106,45 @@ export default function BusinessDashbard() {
       )
     : null;
 
-  console.log("user?.profile ::: ", user);
+  // Show loading state while fetching user
+  if (loading && !user) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="bg-carbon-gradient rounded-lg p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="h-8 w-64 bg-white/20 rounded mb-2 animate-pulse"></div>
+              <div className="h-4 w-96 bg-white/10 rounded animate-pulse"></div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold">{formattedDate}</div>
+              <div className="text-carbon-100">Your Dashboard</div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-32 bg-gray-200 rounded animate-pulse"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-primary" />
+          <span className="ml-2 text-muted-foreground">Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -105,7 +153,7 @@ export default function BusinessDashbard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold mb-2">
-              Welcome back, {user?.name}
+              Welcome back, {user?.name || "User"}
             </h1>
             <p className="text-carbon-100">
               Track your API usage, carbon calculations, and offset activities
@@ -129,22 +177,24 @@ export default function BusinessDashbard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {user?.profile?.api_requests_made}
+              {user?.profile?.api_requests_made || 0}
             </div>
             <div className="flex flex-col gap-2 text-xs text-muted-foreground">
               {user?.profile?.total_requests_limit ? (
                 <>
                   <Progress
                     value={
-                      (user?.profile.api_requests_made /
-                        user?.profile.total_requests_limit) *
-                      100
+                      user?.profile?.api_requests_made && user?.profile?.total_requests_limit
+                        ? (Number(user.profile.api_requests_made) /
+                           Number(user.profile.total_requests_limit)) * 100
+                        : 0
                     }
                     className="h-2 mr-2 w-full"
                   />
-                    {(user?.profile.api_requests_made /
-                      user?.profile.total_requests_limit) *
-                      100}
+                  {user?.profile?.api_requests_made && user?.profile?.total_requests_limit
+                    ? Math.round((Number(user.profile.api_requests_made) /
+                        Number(user.profile.total_requests_limit)) * 100)
+                    : 0}
                   % of your limit
                 </>
               ) : (

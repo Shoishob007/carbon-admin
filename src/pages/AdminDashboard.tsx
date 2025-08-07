@@ -58,13 +58,19 @@ const offsetProjects = [
 ];
 
 export default function AdminDashboard() {
-  const user = useAuthStore((s) => s.user);
 
-  const { apiUsers, loading } = useUsersStore();
+  const { apiUsers, fetchUsers, loading } = useUsersStore();
+    const { user, fetchUserProfile } = useUserStore();
+    const { accessToken } = useAuthStore();
+      const role = useAuthStore((state) => state.user?.role);
+
 
   const { activePlans, inactivePlans } = useSubscriptionStore();
-  const { payments } = useBillingStore();
-  const { queries } = useQueriesStore();
+  const {
+    payments,
+    loading: paymentsLoading,
+    fetchPayments
+  } = useBillingStore();  const { queries } = useQueriesStore();
 
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
@@ -91,6 +97,7 @@ export default function AdminDashboard() {
     ];
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
+    
 
     // data for all 12 months
     const allMonthsData = Array.from({ length: 12 }, (_, i) => {
@@ -136,6 +143,16 @@ export default function AdminDashboard() {
     });
   }, [apiUsers]);
 
+    useEffect(() => {
+      if (accessToken && !user) {
+        fetchUsers(accessToken);
+      }
+          if (accessToken && role) {
+      fetchPayments(accessToken, role);
+    }
+      fetchUserProfile(accessToken);
+    }, [accessToken, user, fetchUsers, fetchUserProfile, fetchPayments, role]);
+
   const allPlans = [...activePlans, ...inactivePlans];
   const activeSubscribers = allPlans.reduce(
     (sum, plan) => sum + (plan.is_active ? 1 : 0),
@@ -174,10 +191,41 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading) {
+  if (loading && !user) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="space-y-6 animate-fade-in">
+        <div className="bg-carbon-gradient rounded-lg p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="h-8 w-64 bg-white/20 rounded mb-2 animate-pulse"></div>
+              <div className="h-4 w-96 bg-white/10 rounded animate-pulse"></div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold">{formattedDate}</div>
+              <div className="text-carbon-100">Your Dashboard</div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-32 bg-gray-200 rounded animate-pulse"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-primary" />
+          <span className="ml-2 text-muted-foreground">Loading dashboard...</span>
+        </div>
       </div>
     );
   }

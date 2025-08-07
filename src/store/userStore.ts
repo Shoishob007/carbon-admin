@@ -26,7 +26,6 @@ interface BusinessProfile {
 
 interface User {
     id: number;
-
   [x: string]: any;
   email: string;
   name: string;

@@ -23,6 +23,8 @@ import {
   Calendar,
   CheckCircle,
   XCircle,
+  Loader2,
+  Eye,
 } from "lucide-react";
 import {
   Dialog,
@@ -32,6 +34,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Search, Filter, ChevronDown, ChevronUp } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import {
   Table,
@@ -44,10 +54,12 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { recentSubscriptions } from "@/data/mockSubscribers";
+import { useSubscriberStore } from "@/store/subscriberStore";
+import { SubscriptionDetailsDialog } from "@/components/SubscriptionDetailsDialogue";
 
 export default function Subscriptions() {
   const accessToken = useAuthStore((state) => state.accessToken);
-    const user = useAuthStore((state) => state.user);
+  const user = useAuthStore((state) => state.user);
   const role = user?.role;
   const {
     activePlans,
@@ -62,6 +74,22 @@ export default function Subscriptions() {
     togglePlanStatus,
   } = useSubscriptionStore();
   // console.log("activePlans :: ", activePlans)
+  const {
+    subscriptions,
+    loading: subscribersLoading,
+    error: subscribersError,
+    fetchSubscriptions,
+    updateSubscriptionFrequency,
+    cancelSubscription,
+    subscriptionDetails,
+    fetchSubscriptionDetails
+  } = useSubscriberStore();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: string;
+  } | null>(null);
 
   const [newPlan, setNewPlan] = useState({
     name: "",
@@ -79,6 +107,8 @@ export default function Subscriptions() {
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
     if (role === "business" || role === "individual") {
@@ -86,13 +116,22 @@ export default function Subscriptions() {
     } else if (accessToken) {
       fetchPlans(accessToken);
     }
-  }, [role, accessToken, fetchPlans, fetchPublicPlans]);
+    if (accessToken) {
+      fetchSubscriptions(accessToken);
+    }
+  }, [role, accessToken, fetchPlans, fetchPublicPlans, fetchSubscriptions]);
 
   useEffect(() => {
     if (error) {
       toast.error(error);
     }
   }, [error]);
+
+  useEffect(() => {
+    if (subscribersError) {
+      toast.error(subscribersError);
+    }
+  }, [subscribersError]);
 
   const handleCreatePlan = async () => {
     try {
@@ -191,6 +230,85 @@ export default function Subscriptions() {
     (sum, plan) => sum + plan.monthly_price * 10,
     0
   );
+
+  // filtering and sorting
+  const filteredSubscriptions = subscriptions
+    .filter((sub) => {
+      const matchesSearch =
+        sub.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sub.user_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sub.plan_details.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === "all" || sub.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      if (!sortConfig) return 0;
+
+      const key = sortConfig.key as keyof SubscriptionPlan;
+      if (a[key] < b[key]) {
+        return sortConfig.direction === "ascending" ? -1 : 1;
+      }
+      if (a[key] > b[key]) {
+        return sortConfig.direction === "ascending" ? 1 : -1;
+      }
+      return 0;
+    });
+
+  const activeSubscribersCount = subscriptions.filter(
+    (sub) => sub.status === "active"
+  ).length;
+
+  const requestSort = (key: string) => {
+    let direction = "ascending";
+    if (
+      sortConfig &&
+      sortConfig.key === key &&
+      sortConfig.direction === "ascending"
+    ) {
+      direction = "descending";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const handleFrequencyChange = async (
+    userId: number,
+    planId: number,
+    newFrequency: "monthly" | "yearly"
+  ) => {
+    try {
+      await updateSubscriptionFrequency(
+        accessToken!,
+        userId,
+        planId,
+        newFrequency
+      );
+      toast.success("Payment frequency updated");
+    } catch (error) {
+      toast.error("Failed to update payment frequency");
+    }
+  };
+
+  const handleCancelSubscription = async (userId: number, planId: number) => {
+    try {
+      await cancelSubscription(accessToken!, userId, planId);
+      toast.success("Subscription cancelled");
+    } catch (error) {
+      toast.error("Failed to cancel subscription");
+    }
+  };
+
+  const handleViewDetails = async (userId: number) => {
+    setSelectedUserId(userId);
+    try {
+      await fetchSubscriptionDetails(accessToken!, userId);
+      setDetailsDialogOpen(true);
+    } catch (error) {
+      toast.error("Failed to load subscription details");
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -578,10 +696,10 @@ export default function Subscriptions() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-700">
-              {activeSubscribers}
+              {activeSubscribersCount}
             </div>
             <p className="text-xs text-muted-foreground">
-              +{(activeSubscribers * 0.15).toFixed(1)}% from last month
+              {subscriptions.length} total subscribers
             </p>
           </CardContent>
         </Card>
@@ -695,66 +813,200 @@ export default function Subscriptions() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Subscriptions</CardTitle>
+          <CardTitle>Subscribers</CardTitle>
           <CardDescription>
-            Latest subscription activities and changes
+            Manage and view all subscription activities
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead>Next Billing</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentSubscriptions.map((subscription) => (
-                <TableRow key={subscription.id}>
-                  <TableCell className="font-medium">
-                    {subscription.customer}
-                  </TableCell>
-                  <TableCell>{subscription.plan}</TableCell>
-                  <TableCell>${subscription.amount}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        subscription.status === "active"
-                          ? "default"
-                          : subscription.status === "pending"
-                          ? "secondary"
-                          : "destructive"
-                      }
-                      className={
-                        subscription.status === "active"
-                          ? "bg-green-500"
-                          : subscription.status === "pending"
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                      }
-                    >
-                      {subscription.status === "active" ? (
-                        <CheckCircle className="mr-1 h-3 w-3" />
-                      ) : subscription.status === "cancelled" ? (
-                        <XCircle className="mr-1 h-3 w-3" />
-                      ) : (
-                        <Calendar className="mr-1 h-3 w-3" />
-                      )}
-                      {subscription.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{subscription.startDate}</TableCell>
-                  <TableCell>{subscription.nextBilling}</TableCell>
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search subscribers..."
+                className="pl-8"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4" />
+                  <SelectValue placeholder="Filter by status" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="trialing">Trialing</SelectItem>
+                <SelectItem value="past_due">Past Due</SelectItem>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead
+                    className="cursor-pointer"
+                    onClick={() => requestSort("user_name")}
+                  >
+                    <div className="flex items-center">
+                      Customer
+                      {sortConfig?.key === "user_name" &&
+                        (sortConfig.direction === "ascending" ? (
+                          <ChevronUp className="ml-1 h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="ml-1 h-4 w-4" />
+                        ))}
+                    </div>
+                  </TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Start Date</TableHead>
+                  <TableHead>Next Billing</TableHead>
+                  <TableHead>Frequency</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredSubscriptions.length > 0 ? (
+                  filteredSubscriptions.map((subscription) => (
+                    <TableRow key={subscription.id}>
+                      <TableCell>
+                        <div className="font-medium">
+                          {subscription.user_name}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {subscription.user_email}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">
+                          {subscription.plan_details.name}
+                        </div>
+                        <div className="text-sm text-muted-foreground line-clamp-1">
+                          {subscription.plan_details.description}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        $
+                        {subscription.payment_frequency === "monthly"
+                          ? subscription.plan_details.monthly_price
+                          : subscription.plan_details.yearly_price}
+                        /{subscription.payment_frequency}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            subscription.status === "active"
+                              ? "default"
+                              : subscription.status === "trialing"
+                              ? "secondary"
+                              : "destructive"
+                          }
+                          className={
+                            subscription.status === "active"
+                              ? "bg-green-500"
+                              : subscription.status === "trialing"
+                              ? "bg-blue-500"
+                              : subscription.status === "past_due"
+                              ? "bg-yellow-500"
+                              : "bg-red-500"
+                          }
+                        >
+                          {subscription.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(subscription.start_date).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        {subscription.status === "active"
+                          ? new Date(subscription.end_date).toLocaleDateString()
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={subscription.payment_frequency}
+                          onValueChange={(value: "monthly" | "yearly") =>
+                            handleFrequencyChange(
+                              subscription.user,
+                              subscription.plan,
+                              value
+                            )
+                          }
+                          disabled={subscription.status !== "active"}
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="monthly">Monthly</SelectItem>
+                            <SelectItem value="yearly">Yearly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                                    onClick={() => handleViewDetails(subscription.user)}
+
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {subscription.status === "active" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleCancelSubscription(
+                                  subscription.user,
+                                  subscription.plan
+                                )
+                              }
+                              disabled={subscribersLoading}
+                            >
+                              <XCircle className="h-4 w-4 text-red-500" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      {subscribersLoading ? (
+                        <div className="flex justify-center">
+                          <Loader2 className="animate-spin h-6 w-6" />
+                        </div>
+                      ) : (
+                        "No subscribers found"
+                      )}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          
         </CardContent>
       </Card>
+
+      <SubscriptionDetailsDialog
+        isOpen={detailsDialogOpen}
+        onClose={() => setDetailsDialogOpen(false)}
+        subscription={subscriptionDetails}
+        loading={subscribersLoading}
+      />
     </div>
   );
 }
