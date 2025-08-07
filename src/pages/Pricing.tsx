@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/auth";
 import { useUserProfile } from "@/hooks/use-profile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle, Crown, Zap, Star } from "lucide-react";
+import { Loader2, CheckCircle, Crown, Zap, Star, FileQuestion } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,8 @@ const planIcons = [
   <Star key="basic" className="w-10 h-10 text-blue-500" />,
   <Crown key="popular" className="w-10 h-10 text-amber-500" />,
   <Zap key="premium" className="w-10 h-10 text-purple-500" />,
+    <FileQuestion key="premium" className="w-10 h-10 text-purple-500" />,
+
 ];
 
 function ProfileCompletePopup() {
@@ -311,7 +313,7 @@ export default function Pricing() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
           {sortedPlans.map((plan, idx) => {
             const isPopular = idx === 1 && sortedPlans.length > 1;
             const price =
@@ -451,8 +453,8 @@ export default function Pricing() {
 
                 {/* Current Plan Badge */}
                 {isCurrentPlan && (
-                  <div className="absolute top-6 right-6">
-                    <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-4 py-2 rounded-full shadow-lg text-xs">
+                  <div className="absolute top-4 right-4">
+                    <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-3 py-2 rounded-full shadow-lg text-xs">
                       <CheckCircle className="w-4 h-4 mr-1" />
                       ACTIVE
                     </Badge>
