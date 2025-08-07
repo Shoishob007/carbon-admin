@@ -63,7 +63,7 @@ export default function AdminDashboard() {
   const { accessToken } = useAuthStore();
   const role = useAuthStore((state) => state.user?.role);
 
-  const { activePlans, inactivePlans } = useSubscriptionStore();
+  const { activePlans, inactivePlans, fetchPlans } = useSubscriptionStore();
   const {
     payments,
     loading: paymentsLoading,
@@ -145,7 +145,10 @@ export default function AdminDashboard() {
     if (accessToken && !user) {
       fetchUsers(accessToken);
     }
-  }, [accessToken, user, fetchUsers, role]);
+    if(accessToken){
+      fetchPlans(accessToken);
+    }
+  }, [accessToken, user, fetchUsers, fetchPlans, role]);
 
   useEffect(() => {
     if (accessToken && role) {
