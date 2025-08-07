@@ -58,19 +58,18 @@ const offsetProjects = [
 ];
 
 export default function AdminDashboard() {
-
   const { apiUsers, fetchUsers, loading } = useUsersStore();
-    const { user, fetchUserProfile } = useUserStore();
-    const { accessToken } = useAuthStore();
-      const role = useAuthStore((state) => state.user?.role);
-
+  const { user, fetchUserProfile } = useUserStore();
+  const { accessToken } = useAuthStore();
+  const role = useAuthStore((state) => state.user?.role);
 
   const { activePlans, inactivePlans } = useSubscriptionStore();
   const {
     payments,
     loading: paymentsLoading,
-    fetchPayments
-  } = useBillingStore();  const { queries } = useQueriesStore();
+    fetchPayments,
+  } = useBillingStore();
+  const { queries } = useQueriesStore();
 
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
@@ -97,7 +96,6 @@ export default function AdminDashboard() {
     ];
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
-    
 
     // data for all 12 months
     const allMonthsData = Array.from({ length: 12 }, (_, i) => {
@@ -143,15 +141,17 @@ export default function AdminDashboard() {
     });
   }, [apiUsers]);
 
-    useEffect(() => {
-      if (accessToken && !user) {
-        fetchUsers(accessToken);
-      }
-          if (accessToken && role) {
+  useEffect(() => {
+    if (accessToken && !user) {
+      fetchUsers(accessToken);
+    }
+  }, [accessToken, user, fetchUsers, role]);
+
+  useEffect(() => {
+    if (accessToken && role) {
       fetchPayments(accessToken, role);
     }
-      fetchUserProfile(accessToken);
-    }, [accessToken, user, fetchUsers, fetchUserProfile, fetchPayments, role]);
+  }, [accessToken, fetchPayments, role]);
 
   const allPlans = [...activePlans, ...inactivePlans];
   const activeSubscribers = allPlans.reduce(
@@ -206,7 +206,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-        
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="hover:shadow-lg transition-shadow">
@@ -221,10 +221,12 @@ export default function AdminDashboard() {
             </Card>
           ))}
         </div>
-        
+
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-primary" />
-          <span className="ml-2 text-muted-foreground">Loading dashboard...</span>
+          <span className="ml-2 text-muted-foreground">
+            Loading dashboard...
+          </span>
         </div>
       </div>
     );

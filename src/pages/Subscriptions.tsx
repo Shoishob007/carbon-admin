@@ -56,6 +56,7 @@ import { toast } from "sonner";
 import { recentSubscriptions } from "@/data/mockSubscribers";
 import { useSubscriberStore } from "@/store/subscriberStore";
 import { SubscriptionDetailsDialog } from "@/components/SubscriptionDetailsDialogue";
+import { Pagination } from "@/components/Pagination";
 
 export default function Subscriptions() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -109,6 +110,9 @@ export default function Subscriptions() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+const [totalCount, setTotalCount] = useState(0);
 
   useEffect(() => {
     if (role === "business" || role === "individual") {
@@ -221,11 +225,11 @@ export default function Subscriptions() {
     setIsEditDialogOpen(true);
   };
 
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+const startIndex = (currentPage - 1) * itemsPerPage + 1;
+const endIndex = Math.min(currentPage * itemsPerPage, totalCount);
+
   const allPlans = [...activePlans, ...inactivePlans];
-  const activeSubscribers = allPlans.reduce(
-    (sum, plan) => sum + (plan.is_active ? 1 : 0),
-    0
-  );
   const totalRevenue = allPlans.reduce(
     (sum, plan) => sum + plan.monthly_price * 10,
     0
@@ -309,6 +313,17 @@ export default function Subscriptions() {
       toast.error("Failed to load subscription details");
     }
   };
+
+  const handlePageChange = (page: number) => {
+  setCurrentPage(page);
+  fetchSubscriptions(accessToken);
+};
+
+const handleItemsPerPageChange = (newItemsPerPage: number) => {
+  setItemsPerPage(newItemsPerPage);
+  setCurrentPage(1);
+  fetchSubscriptions(accessToken);
+};
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -974,7 +989,7 @@ export default function Subscriptions() {
                               }
                               disabled={subscribersLoading}
                             >
-                              <XCircle className="h-4 w-4 text-red-500" />
+                              <Trash2 className="h-4 w-4 text-red-500" />
                             </Button>
                           )}
                         </div>
@@ -997,7 +1012,20 @@ export default function Subscriptions() {
               </TableBody>
             </Table>
           </div>
-          
+
+          {/* Subscribers Pagination */}
+{subscriptions.length > 0 && (
+  <Pagination
+    currentPage={currentPage}
+    totalPages={totalPages}
+    onPageChange={handlePageChange}
+    onItemsPerPageChange={handleItemsPerPageChange}
+    itemsPerPage={itemsPerPage}
+    totalItems={totalCount}
+    startIndex={startIndex}
+    endIndex={endIndex}
+    showItemsPerPage={true}
+  />)}
         </CardContent>
       </Card>
 
