@@ -7,7 +7,14 @@ import { useAuthStore } from "@/store/auth";
 import { useUserProfile } from "@/hooks/use-profile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle, Crown, Zap, Star, FileQuestion } from "lucide-react";
+import {
+  Loader2,
+  CheckCircle,
+  Crown,
+  Zap,
+  Star,
+  FileQuestion,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -17,8 +24,7 @@ const planIcons = [
   <Star key="basic" className="w-10 h-10 text-blue-500" />,
   <Crown key="popular" className="w-10 h-10 text-amber-500" />,
   <Zap key="premium" className="w-10 h-10 text-purple-500" />,
-    <FileQuestion key="premium" className="w-10 h-10 text-purple-500" />,
-
+  <FileQuestion key="premium" className="w-10 h-10 text-purple-500" />,
 ];
 
 function ProfileCompletePopup() {
@@ -134,7 +140,7 @@ export default function Pricing() {
 
       // naviagting
       setTimeout(() => {
-        navigate("/my-subscription");
+        navigate("/subscriptions/my-subscription");
       }, 1500);
     } catch (error) {
       console.error("Subscription creation failed:", error);
@@ -171,7 +177,7 @@ export default function Pricing() {
 
       // navigating
       setTimeout(() => {
-        navigate("/my-subscription");
+        navigate("/subscriptions/my-subscription");
       }, 1500);
     } catch (error) {
       console.error("Plan change failed:", error);
@@ -445,7 +451,7 @@ export default function Pricing() {
                 {/* Popular Badge */}
                 {isPopular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold px-6 py-2 rounded-full shadow-lg text-sm tracking-wide">
+                    <Badge className="bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold px-6 py-2 rounded-full shadow-lg text-xs tracking-wide">
                       POPULAR
                     </Badge>
                   </div>
@@ -454,7 +460,7 @@ export default function Pricing() {
                 {/* Current Plan Badge */}
                 {isCurrentPlan && (
                   <div className="absolute top-4 right-4">
-                    <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-3 py-2 rounded-full shadow-lg text-xs">
+                    <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-2 py-1 rounded-full shadow-lg text-xs">
                       <CheckCircle className="w-4 h-4 mr-1" />
                       ACTIVE
                     </Badge>

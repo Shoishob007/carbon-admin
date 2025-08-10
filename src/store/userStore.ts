@@ -53,6 +53,10 @@ interface UserState {
     data: Partial<BusinessProfile>
   ) => Promise<void>;
   regenerateApiKey: (accessToken: string) => Promise<string | undefined>;
+  uploadProfileImage: (
+    accessToken: string,
+    formData: FormData
+  ) => Promise<{ message: string; profile_image: string }>;
 }
 
 export const useUserStore = create<UserState>()(
@@ -204,6 +208,48 @@ export const useUserStore = create<UserState>()(
             typeof error === "string"
               ? error
               : error?.message || "Failed to regenerate API key",
+          loading: false,
+        });
+        throw error;
+      } finally {
+        set({ loading: false });
+      }
+    },
+    uploadProfileImage: async (accessToken, formData) => {
+      set({ loading: true, error: null });
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/api/users/profile/image/`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: formData,
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Failed to upload profile image");
+        }
+
+        const data = await response.json();
+
+        // Update the user state with the new profile image
+        set((state) => {
+          if (state.user) {
+            state.user.profile_image = data.profile_image;
+          }
+        });
+
+        return data;
+      } catch (error: any) {
+        set({
+          error:
+            typeof error === "string"
+              ? error
+              : error?.message || "Failed to upload profile image",
           loading: false,
         });
         throw error;

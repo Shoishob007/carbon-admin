@@ -139,7 +139,7 @@ export function AdminSidebar() {
     if (role === "business") {
       return [
         { title: "Pricing", url: "/subscriptions/pricing" },
-        { title: "My Plans", url: "/my-subscription" },
+        { title: "My Plans", url: "/subscriptions/my-subscription" },
       ];
     }
     return [

@@ -145,7 +145,7 @@ export default function AdminDashboard() {
     if (accessToken && !user) {
       fetchUsers(accessToken);
     }
-    if(accessToken){
+    if (accessToken) {
       fetchPlans(accessToken);
     }
   }, [accessToken, user, fetchUsers, fetchPlans, role]);

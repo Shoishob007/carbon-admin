@@ -82,7 +82,7 @@ export default function Subscriptions() {
     updateSubscriptionFrequency,
     cancelSubscription,
     subscriptionDetails,
-    fetchSubscriptionDetails
+    fetchSubscriptionDetails,
   } = useSubscriberStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -107,7 +107,7 @@ export default function Subscriptions() {
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -957,8 +957,7 @@ export default function Subscriptions() {
                           <Button
                             variant="ghost"
                             size="sm"
-                                    onClick={() => handleViewDetails(subscription.user)}
-
+                            onClick={() => handleViewDetails(subscription.user)}
                           >
                             <Eye className="h-4 w-4" />
                           </Button>

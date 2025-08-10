@@ -65,7 +65,7 @@ export const routes: AppRoute[] = [
     roles: ["super_admin", "business"],
   },
   {
-    path: "/my-subscription",
+    path: "/subscriptions/my-subscription",
     component: MySubscription,
     layout: "dashboard",
     roles: ["business"],

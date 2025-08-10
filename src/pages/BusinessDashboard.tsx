@@ -122,7 +122,7 @@ export default function BusinessDashboard() {
             </div>
           </div>
         </div>
-        
+
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="hover:shadow-lg transition-shadow">
@@ -137,10 +137,12 @@ export default function BusinessDashboard() {
             </Card>
           ))}
         </div>
-        
+
         <div className="flex justify-center items-center h-64">
           <Loader2 className="animate-spin h-8 w-8 text-primary" />
-          <span className="ml-2 text-muted-foreground">Loading dashboard...</span>
+          <span className="ml-2 text-muted-foreground">
+            Loading dashboard...
+          </span>
         </div>
       </div>
     );
@@ -184,16 +186,22 @@ export default function BusinessDashboard() {
                 <>
                   <Progress
                     value={
-                      user?.profile?.api_requests_made && user?.profile?.total_requests_limit
+                      user?.profile?.api_requests_made &&
+                      user?.profile?.total_requests_limit
                         ? (Number(user.profile.api_requests_made) /
-                           Number(user.profile.total_requests_limit)) * 100
+                            Number(user.profile.total_requests_limit)) *
+                          100
                         : 0
                     }
                     className="h-2 mr-2 w-full"
                   />
-                  {user?.profile?.api_requests_made && user?.profile?.total_requests_limit
-                    ? Math.round((Number(user.profile.api_requests_made) /
-                        Number(user.profile.total_requests_limit)) * 100)
+                  {user?.profile?.api_requests_made &&
+                  user?.profile?.total_requests_limit
+                    ? Math.round(
+                        (Number(user.profile.api_requests_made) /
+                          Number(user.profile.total_requests_limit)) *
+                          100
+                      )
                     : 0}
                   % of your limit
                 </>

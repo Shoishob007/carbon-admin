@@ -9,12 +9,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Zap, Globe, Bell, Lock, User2, InfoIcon, Loader2 } from "lucide-react";
+import { User, Zap, Globe, Bell, Lock, User2, InfoIcon, Loader2, Shield, Crown, Edit, X, Check } from "lucide-react";
 import NotificationSettings from "./NotificationSettings";
 import ApiKeyManager from "./ApiKeyManager";
 import { useAuthStore } from "@/store/auth";
 import { useUserStore } from "@/store/userStore";
 import { toast } from "sonner";
+import ProfileImageUpload from "@/components/ProfileImageUpload";
 
 interface IntegrationSettings {
   apiRateLimit: number;
@@ -34,6 +35,7 @@ export default function SuperAdminSettings() {
     regenerateApiKey,
   } = useUserStore();
   const { accessToken } = useAuthStore();
+  const [editMode, setEditMode] = useState(false);
   const [profileSettings, setProfileSettings] = useState({
     name: "",
     email: "",
@@ -89,6 +91,7 @@ export default function SuperAdminSettings() {
         }),
       });
       toast.success("Profile updated successfully");
+      setEditMode(false);
       setProfileSettings((prev) => ({
         ...prev,
         currentPassword: "",
@@ -152,11 +155,44 @@ export default function SuperAdminSettings() {
 
   return (
     <div className="space-y-8 mx-auto">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold">Super Admin Settings</h1>
-        <p className="text-muted-foreground">
-          Configure super administrator profile and system integrations
-        </p>
+      <div className="flex justify-between items-center">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold">Super Admin Settings</h1>
+          <p className="text-muted-foreground">
+            Configure super administrator profile and system integrations
+          </p>
+        </div>
+        <div>
+          {!editMode ? (
+            <Button
+              variant="outline"
+              onClick={() => setEditMode(true)}
+              className="gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              Edit Profile
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setEditMode(false)}
+                className="gap-2"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveProfile}
+                disabled={loading}
+                className="gap-2"
+              >
+                <Check className="h-4 w-4" />
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       <section className="space-y-6">
@@ -171,43 +207,70 @@ export default function SuperAdminSettings() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  value={profileSettings.name}
-                  onChange={(e) =>
-                    setProfileSettings({
-                      ...profileSettings,
-                      name: e.target.value,
-                    })
-                  }
+            {/* Profile Header Section */}
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 pb-8 border-b border-border mb-8">
+              <div className="flex-shrink-0">
+                <ProfileImageUpload
+                  currentImage={user?.profile_image}
+                  onUploadSuccess={(imageUrl) => {
+                    fetchUserProfile(accessToken);
+                  }}
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={profileSettings.email}
-                  onChange={(e) =>
-                    setProfileSettings({
-                      ...profileSettings,
-                      email: e.target.value,
-                    })
-                  }
-                />
+              <div className="flex-1 text-center sm:text-left space-y-2">
+                <h2 className="text-2xl font-bold">{profileSettings.name || "Super Administrator"}</h2>
+                <p className="text-muted-foreground">{profileSettings.email}</p>
+                <div className="flex flex-wrap gap-2 justify-center sm:justify-start pt-2">
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-red-100 text-red-700">
+                    <Crown className="h-3 w-3" />
+                    Super Administrator
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-700">
+                    <Shield className="h-3 w-3" />
+                    System Access
+                  </span>
+                </div>
               </div>
             </div>
 
-            <Button
-              onClick={handleSaveProfile}
-              className="mt-4"
-              disabled={loading}
-            >
-              {loading ? "Saving..." : "Save Profile Settings"}
-            </Button>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-muted-foreground">Full Name</Label>
+                {editMode ? (
+                  <Input
+                    id="name"
+                    value={profileSettings.name}
+                    onChange={(e) =>
+                      setProfileSettings({
+                        ...profileSettings,
+                        name: e.target.value,
+                      })
+                    }
+                  />
+                ) : (
+                  <p className="text-sm font-medium">{profileSettings.name}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-muted-foreground">Email Address</Label>
+                {editMode ? (
+                  <Input
+                    id="email"
+                    type="email"
+                    value={profileSettings.email}
+                    onChange={(e) =>
+                      setProfileSettings({
+                        ...profileSettings,
+                        email: e.target.value,
+                      })
+                    }
+                  />
+                ) : (
+                  <p className="text-sm font-medium">{profileSettings.email}</p>
+                )}
+              </div>
+            </div>
+
           </CardContent>
         </Card>
 

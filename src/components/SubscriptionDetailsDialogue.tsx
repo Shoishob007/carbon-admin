@@ -8,7 +8,21 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { FileText, Loader2, Calendar, CheckCircle, XCircle, Clock, AlertCircle, User, Mail, Package, DollarSign, Zap, CreditCard } from "lucide-react";
+import {
+  FileText,
+  Loader2,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertCircle,
+  User,
+  Mail,
+  Package,
+  DollarSign,
+  Zap,
+  CreditCard,
+} from "lucide-react";
 
 interface SubscriptionDetails {
   id: number;
@@ -155,10 +169,20 @@ export function SubscriptionDetailsDialog({
                   </Label>
                   <div className="mt-1">
                     <Badge
-                      variant={subscription.plan_details.is_active ? "default" : "secondary"}
-                      className={subscription.plan_details.is_active ? "bg-green-500" : "bg-gray-500"}
+                      variant={
+                        subscription.plan_details.is_active
+                          ? "default"
+                          : "secondary"
+                      }
+                      className={
+                        subscription.plan_details.is_active
+                          ? "bg-green-500"
+                          : "bg-gray-500"
+                      }
                     >
-                      {subscription.plan_details.is_active ? "Active" : "Inactive"}
+                      {subscription.plan_details.is_active
+                        ? "Active"
+                        : "Inactive"}
                     </Badge>
                   </div>
                 </div>
@@ -170,7 +194,10 @@ export function SubscriptionDetailsDialog({
                     Monthly Price
                   </Label>
                   <p className="text-sm mt-1 font-bold text-green-600">
-                    ${parseFloat(subscription.plan_details.monthly_price).toFixed(2)}
+                    $
+                    {parseFloat(
+                      subscription.plan_details.monthly_price
+                    ).toFixed(2)}
                   </p>
                 </div>
                 <div>
@@ -178,7 +205,10 @@ export function SubscriptionDetailsDialog({
                     Yearly Price
                   </Label>
                   <p className="text-sm mt-1 font-bold text-green-600">
-                    ${parseFloat(subscription.plan_details.yearly_price).toFixed(2)}
+                    $
+                    {parseFloat(subscription.plan_details.yearly_price).toFixed(
+                      2
+                    )}
                   </p>
                 </div>
               </div>
@@ -216,8 +246,8 @@ export function SubscriptionDetailsDialog({
                     Payment Frequency
                   </Label>
                   <p className="text-sm mt-1 font-medium">
-                    {subscription.payment_frequency.charAt(0).toUpperCase() + 
-                     subscription.payment_frequency.slice(1)}
+                    {subscription.payment_frequency.charAt(0).toUpperCase() +
+                      subscription.payment_frequency.slice(1)}
                   </p>
                 </div>
               </div>
@@ -229,24 +259,32 @@ export function SubscriptionDetailsDialog({
                     Start Date
                   </Label>
                   <p className="text-sm mt-1 font-medium">
-                    {new Date(subscription.start_date).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    {new Date(subscription.start_date).toLocaleDateString(
+                      "en-US",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      }
+                    )}
                   </p>
                 </div>
                 <div>
                   <Label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                     <Calendar className="h-4 w-4" />
-                    {subscription.status === "active" ? "Renewal Date" : "End Date"}
+                    {subscription.status === "active"
+                      ? "Renewal Date"
+                      : "End Date"}
                   </Label>
                   <p className="text-sm mt-1 font-medium">
-                    {new Date(subscription.end_date).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    {new Date(subscription.end_date).toLocaleDateString(
+                      "en-US",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      }
+                    )}
                   </p>
                 </div>
               </div>
@@ -265,7 +303,9 @@ export function SubscriptionDetailsDialog({
 
             {/* Additional Information */}
             <div className="p-4 bg-gray-50 rounded-lg">
-              <h4 className="text-lg font-semibold mb-3">Additional Information</h4>
+              <h4 className="text-lg font-semibold mb-3">
+                Additional Information
+              </h4>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-gray-700">
@@ -281,7 +321,9 @@ export function SubscriptionDetailsDialog({
                   </Label>
                   <p className="text-sm mt-1 font-medium">
                     {subscription.last_renewed_at
-                      ? new Date(subscription.last_renewed_at).toLocaleDateString()
+                      ? new Date(
+                          subscription.last_renewed_at
+                        ).toLocaleDateString()
                       : "Never"}
                   </p>
                 </div>
@@ -300,11 +342,7 @@ export function SubscriptionDetailsDialog({
         )}
 
         <div className="pt-4 border-t">
-          <Button
-            variant="destructive"
-            onClick={onClose}
-            className="w-full"
-          >
+          <Button variant="destructive" onClick={onClose} className="w-full">
             Close
           </Button>
         </div>
