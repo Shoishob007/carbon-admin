@@ -4,8 +4,11 @@ interface Query {
   id: number;
   user_email: string;
   user_name: string;
-  interests: string;
+  subject: string;
+  issue_type: "api" | "technical" | "billing" | "other";
+  issue_type_display: string;
   message: string;
+  attachment: string | null;
   status: "pending" | "in_progress";
   created_at: string;
   updated_at: string;

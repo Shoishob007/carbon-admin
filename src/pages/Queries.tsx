@@ -32,10 +32,11 @@ import {
   ArrowUpDown,
   Mail,
   User,
-  Clock,
   Loader2,
   HelpCircle,
   Calendar,
+  Eye,
+  Tag,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -46,12 +47,21 @@ const statusOptions = [
   { value: "in_progress", label: "In Progress" },
 ];
 
+const typeOptions = [
+  { value: "all", label: "All Types" },
+  { value: "api", label: "API" },
+  { value: "technical", label: "Technical" },
+  { value: "billing", label: "Billing" },
+  { value: "other", label: "Other" },
+];
+
 export default function Queries() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const { queries, loading, error, fetchQueries, updateQueryStatus } =
     useQueriesStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState<"latest" | "oldest">("latest");
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
@@ -65,14 +75,17 @@ export default function Queries() {
     .filter((query) => {
       const matchesStatus =
         statusFilter === "all" || query.status === statusFilter;
+      const matchesType =
+        typeFilter === "all" || query.issue_type === typeFilter;
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
         query.user_name.toLowerCase().includes(searchLower) ||
         query.user_email.toLowerCase().includes(searchLower) ||
+        query.subject.toLowerCase().includes(searchLower) ||
         query.message.toLowerCase().includes(searchLower) ||
-        query.interests.toLowerCase().includes(searchLower);
+        query.issue_type_display.toLowerCase().includes(searchLower);
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && matchesType && matchesSearch;
     })
     .sort((a, b) => {
       const dateA = new Date(a.created_at).getTime();
@@ -95,6 +108,20 @@ export default function Queries() {
           className: "bg-yellow-100 text-yellow-800",
         };
     }
+  };
+
+  const getTypeBadge = (issueType: string, displayName: string) => {
+    const colorMap: Record<string, string> = {
+      api: "bg-green-100 text-green-800",
+      technical: "bg-purple-100 text-purple-800",
+      billing: "bg-orange-100 text-orange-800",
+      other: "bg-gray-100 text-gray-800",
+    };
+
+    return {
+      className: colorMap[issueType] || colorMap.other,
+      text: displayName,
+    };
   };
 
   const toggleSortOrder = () => {
@@ -124,6 +151,39 @@ export default function Queries() {
       day: "numeric",
     });
   };
+
+  const handleAttachmentView = (attachment: string) => {
+    if (!attachment) return;
+
+    if (attachment.startsWith("http")) {
+      window.open(attachment, "_blank");
+      return;
+    }
+
+    if (attachment.startsWith("/media/")) {
+      window.open(`${import.meta.env.VITE_API_URL}${attachment}`, "_blank");
+      return;
+    }
+
+    window.open(attachment, "_blank");
+  };
+
+  const getTypeStatistics = () => {
+    const typeCounts: Record<string, number> = {
+      api: 0,
+      technical: 0,
+      billing: 0,
+      other: 0,
+    };
+
+    queries.forEach((query) => {
+      typeCounts[query.issue_type] = (typeCounts[query.issue_type] || 0) + 1;
+    });
+
+    return typeCounts;
+  };
+
+  const typeStats = getTypeStatistics();
 
   if (loading && queries.length === 0) {
     return (
@@ -159,7 +219,7 @@ export default function Queries() {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Queries</CardTitle>
@@ -192,11 +252,27 @@ export default function Queries() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Issue Types</CardTitle>
+            <Tag className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-1">
+              <div className="text-xs text-muted-foreground">
+                API: {typeStats.api} | Tech: {typeStats.technical}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Billing: {typeStats.billing} | Other: {typeStats.other}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Latest Query</CardTitle>
             <Calendar className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-md font-semibold !text-blue">
+            <div className="text-md font-semibold text-orange-700">
               {queries.length > 0 ? formatDate(queries[0].created_at) : "N/A"}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -228,9 +304,9 @@ export default function Queries() {
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[150px]">
                 <Filter className="mr-2 h-4 w-4" />
-                <SelectValue placeholder="Filter by status" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 {statusOptions.map((option) => (
@@ -240,13 +316,26 @@ export default function Queries() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[150px]">
+                <Tag className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                {typeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Button
               variant="outline"
               onClick={toggleSortOrder}
-              className="w-[180px]"
+              className="w-[150px]"
             >
               <ArrowUpDown className="mr-2 h-4 w-4" />
-              {sortOrder === "latest" ? "Latest First" : "Oldest First"}
+              {sortOrder === "latest" ? "Latest" : "Oldest"}
             </Button>
           </div>
 
@@ -254,23 +343,28 @@ export default function Queries() {
             <Table className="min-w-full">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[150px]">User</TableHead>
-                  <TableHead className="w-[200px]">Email</TableHead>
+                  <TableHead className="w-[130px]">User</TableHead>
+                  <TableHead className="w-[180px]">Email</TableHead>
+                  <TableHead className="w-[150px]">Subject</TableHead>
+                  <TableHead className="w-[100px]">Type</TableHead>
                   <TableHead className="min-w-[200px]">Message</TableHead>
-                  <TableHead className="min-w-[150px]">Interests</TableHead>
-                  <TableHead className="w-[120px]">Status</TableHead>
-                  <TableHead className="w-[120px]">Created</TableHead>
+                  <TableHead className="w-[100px]">Attachment</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead className="w-[150px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredQueries.map((query) => {
                   const statusBadge = getStatusBadge(query.status);
+                  const typeBadge = getTypeBadge(
+                    query.issue_type,
+                    query.issue_type_display
+                  );
                   return (
                     <TableRow key={query.id}>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2 truncate">
-                          <span>{query.user_name}</span>
+                          <span className="truncate">{query.user_name}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -279,11 +373,39 @@ export default function Queries() {
                           <span className="truncate">{query.user_email}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="truncate max-w-[200px]">
-                        {query.message}
-                      </TableCell>
                       <TableCell className="truncate max-w-[150px]">
-                        {query.interests}
+                        <span title={query.subject}>{query.subject}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={typeBadge.className}
+                        >
+                          {typeBadge.text}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="truncate max-w-[200px]">
+                        <span title={query.message}>{query.message}</span>
+                      </TableCell>
+                      <TableCell>
+                        {query.attachment ? (
+                          <div className="flex justify-center items-center">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleAttachmentView(query.attachment)
+                              }
+                              className="h-8 w-8 p-0"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">
+                            —
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -293,7 +415,6 @@ export default function Queries() {
                           {statusBadge.text}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(query.created_at)}</TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Switch
@@ -306,12 +427,12 @@ export default function Queries() {
                           />
                           <Label
                             htmlFor={`status-${query.id}`}
-                            className="text-sm"
+                            className="text-xs"
                           >
                             {updatingId === query.id ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
                             ) : query.status === "in_progress" ? (
-                              "In Progress"
+                              "Active"
                             ) : (
                               "Pending"
                             )}
