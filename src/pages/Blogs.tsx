@@ -45,13 +45,16 @@ import {
   Calendar,
   Eye,
   Loader2,
+  Upload,
+  X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { useBlogStore, CreateBlogPost, BlogPost } from "@/store/blogStore";
 import { useAuthStore } from "@/store/auth";
 import RichTextEditor from "@/components/RichTextEditor";
-import ImageUpload from "@/components/ImageUploader";
 
 const categories = ["All Categories", "Blog", "News", "Tutorial", "Guide"];
+import FileUpload from "@/components/FileUpload";
 
 export default function Blogs() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -63,6 +66,7 @@ export default function Blogs() {
     createPost,
     deletePost,
     updatePost,
+    getImageUrl,
   } = useBlogStore();
 
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
@@ -78,7 +82,7 @@ export default function Blogs() {
     category: "Blog",
     sub_category: "Educational",
     date: new Date().toISOString().split("T")[0],
-    image: "",
+    image: null,
     link: "",
   });
 
@@ -100,6 +104,12 @@ export default function Blogs() {
     return text.length > maxLength
       ? text.substring(0, maxLength) + "..."
       : text;
+  };
+
+  // Get image URL with fallback priority
+  const getPostImageUrl = (post: BlogPost) => {
+    const imageUrl = getImageUrl(post);
+    return imageUrl || "";
   };
 
   // filter and sort posts
@@ -163,9 +173,6 @@ export default function Blogs() {
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
-      alert(
-        `Failed to ${editingPost ? "update" : "create"} post. Please try again.`
-      );
     } finally {
       setIsSubmitting(false);
     }
@@ -182,7 +189,7 @@ export default function Blogs() {
         category: post.category || "Blog",
         sub_category: post.sub_category || "Educational",
         date: post.date || new Date().toISOString().split("T")[0],
-        image: post.image || "",
+        image: null,
         link: post.link || "",
       });
       setIsDialogOpen(true);
@@ -200,7 +207,7 @@ export default function Blogs() {
       category: "Blog",
       sub_category: "Educational",
       date: new Date().toISOString().split("T")[0],
-      image: "",
+      image: null,
       link: "",
     });
   };
@@ -234,7 +241,7 @@ export default function Blogs() {
       category: "Blog",
       sub_category: "Educational",
       date: new Date().toISOString().split("T")[0],
-      image: "",
+      image: null,
       link: "",
     });
     setIsDialogOpen(true);
@@ -302,13 +309,24 @@ export default function Blogs() {
             </DialogHeader>
             <div className="grid gap-6 py-4 px-4">
               <div className="grid grid-cols-1 gap-6">
-                {/* Image Upload */}
+                {/* File Upload */}
                 <div className="space-y-2">
-                  <Label htmlFor="image">Featured Image (Optional)</Label>
-                  <ImageUpload
+                  <FileUpload
                     value={newPost.image}
-                    onChange={(url) => setNewPost({ ...newPost, image: url })}
+                    onChange={(file) => setNewPost({ ...newPost, image: file })}
+                    accept="image/*"
+                    label="Featured Image (Optional)"
+                    description={
+                      editingPost
+                        ? "Current image will be replaced if you upload a new one."
+                        : ""
+                    }
                   />
+                  {editingPost && (
+                    <div className="text-sm text-muted-foreground">
+                      Current image will be replaced if you upload a new one.
+                    </div>
+                  )}
                 </div>
 
                 {/* Title */}
@@ -555,6 +573,7 @@ export default function Blogs() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Image</TableHead>
                 <TableHead>Title</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Sub-Category</TableHead>
@@ -570,6 +589,26 @@ export default function Blogs() {
             <TableBody>
               {filteredPosts.map((post) => (
                 <TableRow key={post.id}>
+                  <TableCell>
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {getImageUrl(post) ? (
+                        <img
+                          src={getImageUrl(post)!}
+                          alt={post.title || "Blog post"}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // Fallback to placeholder if image fails to load
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = "none";
+                            target.parentElement!.innerHTML =
+                              '<div class="w-full h-full bg-gray-200 flex items-center justify-center"><svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path></svg></div>';
+                          }}
+                        />
+                      ) : (
+                        <ImageIcon className="w-6 h-6 text-gray-400" />
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="space-y-1 max-w-lg">
                       <div className="font-medium line-clamp-2">

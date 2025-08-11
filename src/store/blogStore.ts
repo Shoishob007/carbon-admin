@@ -5,6 +5,7 @@ export interface BlogPost {
   title: string;
   excerpt: string;
   image?: string;
+  image_url?: string;
   link?: string;
   author: string;
   category: string;
@@ -16,7 +17,7 @@ export interface BlogPost {
 export interface CreateBlogPost {
   title: string;
   excerpt: string;
-  image?: string;
+  image?: File | null; // Changed to File for form data
   link?: string;
   author: string;
   category: string;
@@ -24,8 +25,9 @@ export interface CreateBlogPost {
   date: string;
 }
 
-export interface UpdateBlogPost extends Partial<CreateBlogPost> {
+export interface UpdateBlogPost extends Partial<Omit<CreateBlogPost, "image">> {
   id: number;
+  image?: File | null; // Changed to File for form data
 }
 
 interface BlogStore {
@@ -43,6 +45,7 @@ interface BlogStore {
   ) => Promise<void>;
   deletePost: (id: number, accessToken?: string | null) => Promise<void>;
   getPostById: (id: number) => BlogPost | undefined;
+  getImageUrl: (post: BlogPost) => string | null;
 }
 
 export const useBlogStore = create<BlogStore>((set, get) => ({
@@ -72,44 +75,54 @@ export const useBlogStore = create<BlogStore>((set, get) => ({
   createPost: async (post: CreateBlogPost, accessToken?: string | null) => {
     set({ loading: true, error: null });
     try {
-      const postData = {
-        title: post.title?.trim() || "",
-        excerpt: post.excerpt?.trim() || "",
-        author: post.author?.trim() || "",
-        category: post.category?.trim() || "Blog",
-        sub_category: post.sub_category?.trim() || "Educational",
-        date: post.date || new Date().toISOString().split("T")[0],
-        link: post.link?.trim() || "",
-        image: post.image?.trim() || "",
-      };
+      // FormData
+      const formData = new FormData();
+
+      // text fields
+      formData.append("title", post.title?.trim() || "");
+      formData.append("excerpt", post.excerpt?.trim() || "");
+      formData.append("author", post.author?.trim() || "");
+      formData.append("category", post.category?.trim() || "Blog");
+      formData.append(
+        "sub_category",
+        post.sub_category?.trim() || "Educational"
+      );
+      formData.append(
+        "date",
+        post.date || new Date().toISOString().split("T")[0]
+      );
+      formData.append("link", post.link?.trim() || "");
+
+      // image file if provided
+      if (post.image && post.image instanceof File) {
+        formData.append("image", post.image);
+      }
 
       // Validate required fields
-      if (!postData.title) {
+      if (!post.title?.trim()) {
         throw new Error("Title is required");
       }
-      if (!postData.excerpt) {
+      if (!post.excerpt?.trim()) {
         throw new Error("Content is required");
       }
-      if (!postData.author) {
-        throw new Error("Author is required");
-      }
+      // if (!post.author?.trim()) {
+      //   throw new Error("Author is required");
+      // }
 
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
+      const headers: HeadersInit = {};
 
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
-      console.log("Creating post with data:", postData);
+      console.log("Creating post with FormData");
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/articles/posts/`,
         {
           method: "POST",
           headers,
-          body: JSON.stringify(postData),
+          body: formData,
           redirect: "follow",
         }
       );
@@ -146,35 +159,41 @@ export const useBlogStore = create<BlogStore>((set, get) => ({
   updatePost: async (post: UpdateBlogPost, accessToken?: string | null) => {
     set({ loading: true, error: null });
     try {
-      const updateData: Partial<BlogPost> = {};
+      // FormData
+      const formData = new FormData();
 
-      if (post.title !== undefined) updateData.title = post.title.trim();
-      if (post.excerpt !== undefined) updateData.excerpt = post.excerpt.trim();
-      if (post.author !== undefined) updateData.author = post.author.trim();
+      // fields only if they are defined
+      if (post.title !== undefined) formData.append("title", post.title.trim());
+      if (post.excerpt !== undefined)
+        formData.append("excerpt", post.excerpt.trim());
+      if (post.author !== undefined)
+        formData.append("author", post.author.trim());
       if (post.category !== undefined)
-        updateData.category = post.category.trim();
+        formData.append("category", post.category.trim());
       if (post.sub_category !== undefined)
-        updateData.sub_category = post.sub_category.trim();
-      if (post.date !== undefined) updateData.date = post.date;
-      if (post.link !== undefined) updateData.link = post.link.trim();
-      if (post.image !== undefined) updateData.image = post.image.trim();
+        formData.append("sub_category", post.sub_category.trim());
+      if (post.date !== undefined) formData.append("date", post.date);
+      if (post.link !== undefined) formData.append("link", post.link.trim());
 
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
+      // image file if provided
+      if (post.image && post.image instanceof File) {
+        formData.append("image", post.image);
+      }
+
+      const headers: HeadersInit = {};
 
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
-      console.log("Updating post with data:", updateData);
+      console.log("Updating post with FormData");
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/articles/posts/${post.id}`,
         {
           method: "PATCH",
           headers,
-          body: JSON.stringify(updateData),
+          body: formData,
         }
       );
 
@@ -244,5 +263,18 @@ export const useBlogStore = create<BlogStore>((set, get) => ({
 
   getPostById: (id: number) => {
     return get().posts.find((post) => post.id === id);
+  },
+
+  getImageUrl: (post: BlogPost) => {
+    if (post.image_url) return post.image_url;
+    if (post.image) {
+      if (post.image.startsWith("http")) return post.image;
+
+      if (post.image.startsWith("/media/")) {
+        return `${import.meta.env.VITE_API_URL}${post.image}`;
+      }
+      return post.image;
+    }
+    return null;
   },
 }));
