@@ -78,6 +78,12 @@ export default function AdminDashboard() {
     day: "numeric",
   });
 
+  useEffect(() => {
+    if (accessToken && !user) {
+      fetchUserProfile(accessToken);
+    }
+  }, [accessToken, user, fetchUserProfile]);
+
   // dynamic user growth data for all 12 months
   const userGrowthData = useMemo(() => {
     const monthNames = [

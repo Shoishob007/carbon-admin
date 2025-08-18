@@ -33,6 +33,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { useEffect } from "react";
 
 const emissionData = [
   { month: "Jan", emissions: 2400, offset: 2000 },
@@ -62,13 +63,20 @@ const userGrowth = [
 export default function UserDashboard() {
     console.log("this is user dash")
 
-  const user = useAuthStore((s) => s.user);
+  const { user, fetchUserProfile } = useUserStore();
+    const { accessToken } = useAuthStore();
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
   });
+
+    useEffect(() => {
+    if (accessToken && !user) {
+      fetchUserProfile(accessToken);
+    }
+  }, [accessToken, user, fetchUserProfile]);
 
   return (
     <div className="space-y-6 animate-fade-in">

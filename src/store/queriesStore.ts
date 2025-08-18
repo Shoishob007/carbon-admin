@@ -1,6 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from "zustand";
 
 interface Query {
+  [x: string]: any;
   id: number;
   user_email: string;
   user_name: string;

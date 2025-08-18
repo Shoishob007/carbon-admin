@@ -159,34 +159,32 @@ export const useBlogStore = create<BlogStore>((set, get) => ({
   updatePost: async (post: UpdateBlogPost, accessToken?: string | null) => {
     set({ loading: true, error: null });
     try {
-      // FormData
       const formData = new FormData();
 
-      // fields only if they are defined
-      if (post.title !== undefined) formData.append("title", post.title.trim());
-      if (post.excerpt !== undefined)
-        formData.append("excerpt", post.excerpt.trim());
-      if (post.author !== undefined)
+      if (post.title) formData.append("title", post.title.trim());
+      if (post.excerpt) formData.append("excerpt", post.excerpt.trim());
+      if (post.author && post.author.trim() !== "") {
         formData.append("author", post.author.trim());
-      if (post.category !== undefined)
-        formData.append("category", post.category.trim());
-      if (post.sub_category !== undefined)
+      }
+      if (post.category) formData.append("category", post.category.trim());
+      if (post.sub_category)
         formData.append("sub_category", post.sub_category.trim());
-      if (post.date !== undefined) formData.append("date", post.date);
-      if (post.link !== undefined) formData.append("link", post.link.trim());
+      if (post.date) formData.append("date", post.date);
+      if (post.link) formData.append("link", post.link.trim());
 
-      // image file if provided
       if (post.image && post.image instanceof File) {
         formData.append("image", post.image);
       }
 
-      const headers: HeadersInit = {};
+      // Debug log
+      for (const [key, value] of formData.entries()) {
+        console.log("FORMDATA =>", key, value);
+      }
 
+      const headers: HeadersInit = {};
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
       }
-
-      console.log("Updating post with FormData");
 
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/articles/posts/${post.id}`,
@@ -198,26 +196,16 @@ export const useBlogStore = create<BlogStore>((set, get) => ({
       );
 
       if (!response.ok) {
-        let errorMessage = "Failed to update post";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch {
-          const errorText = await response.text();
-          errorMessage = errorText || errorMessage;
-        }
-        console.error("Update post error:", errorMessage);
-        throw new Error(errorMessage);
+        const text = await response.text();
+        throw new Error(text || "Failed to update post");
       }
 
       const updatedPost: BlogPost = await response.json();
-      console.log("Post updated successfully:", updatedPost);
       set((state) => ({
         posts: state.posts.map((p) => (p.id === post.id ? updatedPost : p)),
         loading: false,
       }));
     } catch (error) {
-      console.error("Update post error:", error);
       set({
         error: error instanceof Error ? error.message : "An error occurred",
         loading: false,
