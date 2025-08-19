@@ -120,6 +120,13 @@ const baseMenuItems: MenuItem[] = [
     hasSubItems: false,
   },
     {
+    title: "Offset History",
+    url: "/offset-history",
+    icon: Globe,
+    roles: ["super_admin"],
+    hasSubItems: false,
+  },
+    {
     title: "My Offset Projects",
     url: "/myOffsetProjects",
     icon: Globe,

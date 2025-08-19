@@ -32,6 +32,10 @@ interface OffsetStoreState {
   deleteProject: (id: number, accessToken: string) => Promise<boolean>;
   loadMoreProjects: () => void;
   showLessProjects: () => void;
+  offsetHistory: any[];
+  historyLoading: boolean;
+  historyError: string | null;
+  fetchOffsetHistoryByEmail: (email: string, accessToken: string) => Promise<void>;
 }
 
 export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
@@ -43,6 +47,9 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
   currentPage: 1,
   itemsPerPage: 6,
   totalProjects: 0,
+    offsetHistory: [],
+  historyLoading: false,
+  historyError: null,
 
   fetchMyOffsets: async (accessToken: string) => {
     set({ loading: true, error: null });
@@ -196,5 +203,31 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
 
   showLessProjects: () => {
     set({ currentPage: 1 });
+  },
+
+  fetchOffsetHistoryByEmail: async (email: string, accessToken: string) => {
+    set({ historyLoading: true, historyError: null });
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/offset/history?user_email=${encodeURIComponent(email)}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch offset history');
+      }
+
+      const data = await response.json();
+      set({ offsetHistory: data, historyLoading: false });
+    } catch (err: any) {
+      set({ historyError: err.message, historyLoading: false });
+      console.error('Error fetching offset history:', err);
+    }
   },
 }));

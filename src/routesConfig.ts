@@ -19,6 +19,7 @@ import BlogDetails from "./pages/BlogDetails";
 import ContactPage from "./pages/ContactPage";
 import TermsAndConditions from "./pages/Terms";
 import DashboardPage from "./app/(dashboard)/dashboard/page";
+import OffsetHistory from "./pages/OffsetHistory";
 
 // route objects
 export interface AppRoute {
@@ -99,6 +100,12 @@ export const routes: AppRoute[] = [
   {
     path: "/offset-projects",
     component: OffsetProjects,
+    layout: "dashboard",
+    roles: ["super_admin"],
+  },
+    {
+    path: "/offset-history",
+    component: OffsetHistory,
     layout: "dashboard",
     roles: ["super_admin"],
   },
