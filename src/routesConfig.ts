@@ -9,6 +9,7 @@ import Faqs from "./pages/Faq";
 import Billing from "./pages/Billing";
 import Queries from "./pages/Queries";
 import OffsetProjects from "./pages/Offset-Projects";
+import MyOffsetProjects from "./pages/MyOffsetProjects"
 import { Login } from "./pages/Login";
 import Register from "./pages/Register";
 import MySubscription from "./pages/mySubscriptions";
@@ -99,7 +100,13 @@ export const routes: AppRoute[] = [
     path: "/offset-projects",
     component: OffsetProjects,
     layout: "dashboard",
-    roles: ["super_admin", "business"],
+    roles: ["super_admin"],
+  },
+    {
+    path: "/myOffsetProjects",
+    component: MyOffsetProjects,
+    layout: "dashboard",
+    roles: ["business", "individual"],
   },
   {
     path: "/faqs",

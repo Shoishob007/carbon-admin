@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { useOffsetStore } from "@/store/offsetStore";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,10 +11,12 @@ import {
   Edit,
   Trash2,
   Globe,
-  User,
-  MapPin,
-  ExternalLink,
+  ArrowRight,
   Eye,
+  X,
+  Star,
+  Ban,
+  Play,
 } from "lucide-react";
 import {
   Dialog,
@@ -24,208 +28,383 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import ProjectDetailsDialog from "@/components/ProjectDetails";
 import { useAuthStore } from "@/store/auth";
 
-// Dummy images
-const projectImages = [
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1464983953574-0892a716854b?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1416339306562-f3d12fefd36f?auto=format&fit=crop&w=600&q=80",
-  "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=600&q=80",
-];
-
-type OffsetProject = {
+interface Project {
   id: number;
+  image_url: string;
+  is_active: boolean;
+  is_default: boolean;
   name: string;
-  image: string;
-  owner: string;
-  site: string;
-  location: string;
   description: string;
-  isActive: boolean;
-  moreDetails: string;
-  estimatedOffset?: string;
-  startDate?: string;
-  endDate?: string;
-  projectType?: string;
-  lastUpdated?: string;
-};
+  gold_standard_confirmation: string;
+  price_per_ton: string;
+  allocated_amount: number;
+  available_amount: number;
+  currency: string;
+}
 
-const initialProjects: OffsetProject[] = [
-  {
-    id: 1,
-    name: "Amazon Rainforest Restoration",
-    image: projectImages[0],
-    owner: "GreenFuture Org",
-    site: "https://greenfuture.org/projects/amazon",
-    location: "Brazil, Amazon Basin",
-    description:
-      "Reforestation and biodiversity recovery in deforested areas of the Amazon.",
-    isActive: true,
-    moreDetails:
-      "This project aims to restore over 5,000 hectares of native forest, support local communities, and protect wildlife habitats. Activities include tree planting, soil restoration, and monitoring carbon sequestration through satellite and field surveys.",
-    estimatedOffset: "150,000 tCO₂e/year",
-    startDate: "2022-01-01",
-    endDate: "2032-12-31",
-    projectType: "Reforestation",
-    lastUpdated: "2025-07-21",
-  },
-  {
-    id: 2,
-    name: "Clean Cookstoves in Kenya",
-    image: projectImages[1],
-    owner: "EcoHelp Nonprofit",
-    site: "https://ecohelp.org/cookstoves",
-    location: "Nairobi, Kenya",
-    description:
-      "Distribution of efficient cookstoves to reduce emissions and improve indoor air quality.",
-    isActive: true,
-    moreDetails:
-      "By providing over 10,000 clean cookstoves, this project lowers wood use, reduces smoke-related illnesses, and empowers women. The project is monitored annually to ensure ongoing impact and adoption.",
-    estimatedOffset: "35,000 tCO₂e/year",
-    startDate: "2021-06-01",
-    endDate: "2028-06-01",
-    projectType: "Renewable Energy/Community",
-    lastUpdated: "2025-07-20",
-  },
-  {
-    id: 3,
-    name: "Wind Power for Rural India",
-    image: projectImages[2],
-    owner: "Sustainable Energy Trust",
-    site: "https://sustainableenergytrust.org/wind-india",
-    location: "Gujarat, India",
-    description:
-      "Development of community wind turbines supplying renewable energy to villages.",
-    isActive: true,
-    moreDetails:
-      "Installed turbines have generated over 20 MW of clean electricity, serving 15 rural communities and displacing fossil fuels. The project includes training programs for local technicians and long-term maintenance plans.",
-    estimatedOffset: "70,000 tCO₂e/year",
-    startDate: "2023-02-15",
-    endDate: "2030-02-15",
-    projectType: "Renewable Energy",
-    lastUpdated: "2025-07-19",
-  },
-  {
-    id: 4,
-    name: "Peatland Protection in Indonesia",
-    image: projectImages[3],
-    owner: "EarthGuardians",
-    site: "https://earthguardians.asia/peatlands",
-    location: "Sumatra, Indonesia",
-    description:
-      "Conservation of critical peatland ecosystems to prevent CO₂ release.",
-    isActive: false,
-    moreDetails:
-      "By blocking drainage canals and restoring natural water levels, this project prevents peat fires and large-scale CO₂ emissions. Community education and sustainable land-use alternatives are core components.",
-    estimatedOffset: "95,000 tCO₂e/year",
-    startDate: "2020-03-20",
-    endDate: "2026-03-20",
-    projectType: "Conservation",
-    lastUpdated: "2025-07-16",
-  },
-];
+interface ProjectFormData {
+  name: string;
+  description: string;
+  gold_standard_confirmation: string;
+  price_per_ton: string;
+  allocated_amount: number;
+  available_amount: number;
+  currency: string;
+  image?: File;
+  is_default: boolean;
+  is_active?: boolean;
+}
 
 export default function OffsetProjects() {
-  const role = useAuthStore((state) => state.user?.role);
-  const [projects, setProjects] = useState<OffsetProject[]>(initialProjects);
-  const [selectedProject, setSelectedProject] = useState<OffsetProject | null>(
-    null
-  );
+  const {
+    projects,
+    loading,
+    error,
+    currentPage,
+    itemsPerPage,
+    fetchProjects,
+    createProject,
+    updateProject,
+    deleteProject,
+    loadMoreProjects,
+    showLessProjects,
+  } = useOffsetStore();
 
-  const [newProject, setNewProject] = useState({
+  const { accessToken } = useAuthStore();
+
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [newProject, setNewProject] = useState<ProjectFormData>({
     name: "",
-    image: "",
-    owner: "",
-    site: "",
-    location: "",
     description: "",
-    isActive: true,
-    moreDetails: "",
-    estimatedOffset: "",
-    startDate: "",
-    endDate: "",
-    projectType: "",
-    lastUpdated: "",
+    gold_standard_confirmation: "",
+    price_per_ton: "",
+    allocated_amount: 0,
+    available_amount: 0,
+    currency: "USD",
+    is_default: false,
+    is_active: true,
   });
-  const [editProjectId, setEditProjectId] = useState<number | null>(null);
-  const [editProject, setEditProject] = useState<typeof newProject>(newProject);
+  const [newProjectImage, setNewProjectImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
-  // CRUD
-  const handleCreateProject = () => {
-    if (!newProject.name.trim() || !newProject.image.trim()) return;
-    setProjects([
-      ...projects,
-      {
-        ...newProject,
-        id: Math.max(0, ...projects.map((p) => p.id)) + 1,
-      },
-    ]);
-    setNewProject({
-      name: "",
-      image: "",
-      owner: "",
-      site: "",
-      location: "",
-      description: "",
-      isActive: true,
-      moreDetails: "",
-      estimatedOffset: "",
-      startDate: "",
-      endDate: "",
-      projectType: "",
-      lastUpdated: "",
-    });
+  const [editProjectId, setEditProjectId] = useState<number | null>(null);
+  const [editProject, setEditProject] = useState<ProjectFormData>(newProject);
+  const [editProjectImage, setEditProjectImage] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
+
+  // FormData
+  const buildFormData = (
+    project: Project | ProjectFormData,
+    overrides?: Partial<ProjectFormData>
+  ) => {
+    const formData = new FormData();
+    formData.append("name", project.name);
+    formData.append("description", project.description);
+    formData.append(
+      "gold_standard_confirmation",
+      project.gold_standard_confirmation
+    );
+    formData.append("price_per_ton", project.price_per_ton);
+    formData.append("allocated_amount", project.allocated_amount.toString());
+    formData.append("available_amount", project.available_amount.toString());
+    formData.append("currency", project.currency);
+    formData.append(
+      "is_active",
+      String(overrides?.is_active ?? (project as Project).is_active ?? true)
+    );
+    formData.append(
+      "is_default",
+      String(overrides?.is_default ?? project.is_default)
+    );
+
+    if (overrides?.image instanceof File) {
+      formData.append("image", overrides.image);
+    }
+    return formData;
   };
 
-  const openEditProject = (project: OffsetProject) => {
+  // image preview for new project
+  useEffect(() => {
+    if (newProjectImage) {
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(newProjectImage);
+    } else {
+      setImagePreview(null);
+    }
+  }, [newProjectImage]);
+
+  // image preview
+  useEffect(() => {
+    if (editProjectImage) {
+      const reader = new FileReader();
+      reader.onloadend = () => setEditImagePreview(reader.result as string);
+      reader.readAsDataURL(editProjectImage);
+    } else {
+      setEditImagePreview(null);
+    }
+  }, [editProjectImage]);
+
+  // displayed projects
+  const displayedProjects = projects.slice(0, currentPage * itemsPerPage);
+  const hasMoreProjects = displayedProjects.length < projects.length;
+  const canShowLess = currentPage > 1;
+
+  const handleCreateProject = async () => {
+    if (!newProject.name.trim()) return;
+    const formData = buildFormData(newProject, {
+      image: newProjectImage || undefined,
+    });
+    const success = await createProject(formData, accessToken);
+    if (success) {
+      setNewProject({
+        name: "",
+        description: "",
+        gold_standard_confirmation: "",
+        price_per_ton: "",
+        allocated_amount: 0,
+        available_amount: 0,
+        currency: "USD",
+        is_default: false,
+        is_active: true,
+      });
+      setNewProjectImage(null);
+      setImagePreview(null);
+      setCreateDialogOpen(false);
+    }
+  };
+
+  const handleSaveEditProject = async () => {
+    if (editProjectId === null) return;
+    const formData = buildFormData(editProject, {
+      image: editProjectImage || undefined,
+    });
+    const success = await updateProject(editProjectId, formData, accessToken);
+    if (success) {
+      setEditProjectId(null);
+      setEditProjectImage(null);
+      setEditImagePreview(null);
+    }
+  };
+
+  const handleActivateProject = async (
+    project: Project,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    const formData = buildFormData(project, { is_active: true });
+    await updateProject(project.id, formData, accessToken);
+  };
+
+  const handleDeactivateProject = async (
+    project: Project,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    const formData = buildFormData(project, { is_active: false });
+    await updateProject(project.id, formData, accessToken);
+  };
+
+  const handleMakeDefault = async (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const formData = buildFormData(project, { is_default: true });
+    await updateProject(project.id, formData, accessToken);
+  };
+
+  const handleRemoveDefault = async (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const formData = buildFormData(project, { is_default: false });
+    await updateProject(project.id, formData, accessToken);
+  };
+
+  const openEditProject = (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
     setEditProjectId(project.id);
     setEditProject({
       name: project.name,
-      image: project.image,
-      owner: project.owner,
-      site: project.site,
-      location: project.location,
       description: project.description,
-      isActive: project.isActive,
-      moreDetails: project.moreDetails,
-      estimatedOffset: project.estimatedOffset || "",
-      startDate: project.startDate || "",
-      endDate: project.endDate || "",
-      projectType: project.projectType || "",
-      lastUpdated: project.lastUpdated || "",
+      gold_standard_confirmation: project.gold_standard_confirmation,
+      price_per_ton: project.price_per_ton,
+      allocated_amount: project.allocated_amount,
+      available_amount: project.available_amount,
+      currency: project.currency,
+      is_default: project.is_default,
+      is_active: project.is_active,
     });
+    setEditProjectImage(null);
+    setEditImagePreview(null);
   };
 
-  const handleSaveEditProject = () => {
-    if (editProjectId === null) return;
-    setProjects((prev) =>
-      prev.map((proj) =>
-        proj.id === editProjectId
-          ? {
-              ...proj,
-              ...editProject,
-            }
-          : proj
-      )
+  const handleDeleteProject = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this project?")) {
+      await deleteProject(id, accessToken);
+    }
+  };
+
+  const handleViewDetails = (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedProject(project);
+  };
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    isEdit: boolean = false
+  ) => {
+    const file = e.target.files?.[0] || null;
+    if (isEdit) {
+      setEditProjectImage(file);
+    } else {
+      setNewProjectImage(file);
+    }
+  };
+
+  const clearImage = (isEdit: boolean = false) => {
+    if (isEdit) {
+      setEditProjectImage(null);
+      setEditImagePreview(null);
+    } else {
+      setNewProjectImage(null);
+      setImagePreview(null);
+    }
+  };
+
+  // Status badge component
+  const StatusBadge = ({
+    isActive,
+    isDefault,
+  }: {
+    isActive: boolean;
+    isDefault: boolean;
+  }) => (
+    <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+      {!isActive && (
+        <div className="bg-red-600 text-white text-xs px-2 py-1 rounded font-bold">
+          Deactivated
+        </div>
+      )}
+      {isDefault && (
+        <div className="bg-green-600 text-white text-xs px-2 py-1 rounded font-bold">
+          Default
+        </div>
+      )}
+    </div>
+  );
+
+  // Action buttons component
+  const ActionButtons = ({ project }: { project: Project }) => (
+    <div className="flex flex-wrap gap-2 mt-3">
+      <Button
+        size="sm"
+        variant="outline"
+        className="text-blue-700 hover:bg-blue-50 flex-1"
+        onClick={(e) => handleViewDetails(project, e)}
+        title="View project details"
+      >
+        <Eye className="w-4 h-4 mr-1" /> Details
+      </Button>
+      <Dialog
+        open={editProjectId === project.id}
+        onOpenChange={(open) => !open && setEditProjectId(null)}
+      >
+        <DialogTrigger asChild>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-green-700 hover:bg-green-50 flex-1"
+            onClick={(e) => openEditProject(project, e)}
+            title="Edit project"
+          >
+            <Edit className="w-4 h-4 mr-1" /> Edit
+          </Button>
+        </DialogTrigger>
+      </Dialog>
+      <Button
+        size="sm"
+        variant="outline"
+        className="text-red-700 hover:bg-red-50 flex-1"
+        onClick={(e) => handleDeleteProject(project.id, e)}
+        title="Delete project"
+      >
+        <Trash2 className="w-4 h-4 mr-1" /> Delete
+      </Button>
+      {project.is_active ? (
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-red-700 hover:bg-red-50 border-red-300 flex-1"
+          onClick={(e) => handleDeactivateProject(project, e)}
+          title="Deactivate project"
+        >
+          <Ban className="w-4 h-4 mr-1" /> Deactivate
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          className="text-green-700 hover:bg-green-50 border-green-300 flex-1"
+          onClick={(e) => handleActivateProject(project, e)}
+          title="Activate project"
+        >
+          <Play className="w-4 h-4 mr-1" /> Activate
+        </Button>
+      )}
+      <Button
+        size="sm"
+        variant="outline"
+        className={`flex-1 ${
+          project.is_default
+            ? "text-amber-700 hover:bg-amber-50 border-amber-300"
+            : "text-amber-700 hover:bg-amber-50 border-amber-300"
+        }`}
+        onClick={(e) =>
+          project.is_default
+            ? handleRemoveDefault(project, e)
+            : handleMakeDefault(project, e)
+        }
+        title={
+          project.is_default
+            ? "Remove default status"
+            : "Set as default project"
+        }
+      >
+        <Star
+          className={`w-4 h-4 mr-1 ${
+            project.is_default ? "fill-amber-400" : ""
+          }`}
+        />
+        {project.is_default ? "Remove Default" : "Make Default"}
+      </Button>
+    </div>
+  );
+
+  if (loading && projects.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+      </div>
     );
-    setEditProjectId(null);
-  };
+  }
 
-  const handleDeleteProject = (id: number) => {
-    setProjects(projects.filter((p) => p.id !== id));
-  };
-
-  const handleToggleProject = (id: number) => {
-    setProjects((prev) =>
-      prev.map((proj) =>
-        proj.id === id ? { ...proj, isActive: !proj.isActive } : proj
-      )
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64 text-red-500">
+        Error: {error}
+      </div>
     );
-  };
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
@@ -236,508 +415,213 @@ export default function OffsetProjects() {
             or view details.
           </p>
         </div>
-        {role === "super_admin" && (
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button className="bg-carbon-gradient hover:bg-carbon-600">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Project
+        {/* Create Project Dialog */}
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-carbon-gradient hover:bg-carbon-600">
+              <Plus className="mr-2 h-4 w-4" /> Add Project
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[600px] bg-background border max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="text-center">
+              <DialogTitle>Add Offset Project</DialogTitle>
+              <DialogDescription>
+                Register a new environmental offset project.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 p-4 px-4">
+              <div className="space-y-2">
+                <Label htmlFor="project-name">Project Name</Label>
+                <Input
+                  id="project-name"
+                  value={newProject.name}
+                  onChange={(e) =>
+                    setNewProject({ ...newProject, name: e.target.value })
+                  }
+                  placeholder="e.g., Amazon Rainforest Restoration"
+                />
+              </div>
+              {/* Image Upload */}
+              <div className="space-y-2">
+                <Label htmlFor="project-image">Project Image</Label>
+                <Input
+                  id="project-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e)}
+                />
+                {imagePreview && (
+                  <div className="relative w-32 h-32 rounded-lg overflow-hidden bg-gray-100 border">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => clearImage()}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="project-description">Description</Label>
+                <Textarea
+                  id="project-description"
+                  value={newProject.description}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Project description..."
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="project-price">Price per Ton</Label>
+                  <Input
+                    id="project-price"
+                    type="number"
+                    step="0.01"
+                    value={newProject.price_per_ton}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        price_per_ton: e.target.value,
+                      })
+                    }
+                    placeholder="e.g., 10.50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-currency">Currency</Label>
+                  <Input
+                    id="project-currency"
+                    value={newProject.currency}
+                    onChange={(e) =>
+                      setNewProject({ ...newProject, currency: e.target.value })
+                    }
+                    placeholder="e.g., USD"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="project-allocated">Allocated Amount</Label>
+                  <Input
+                    id="project-allocated"
+                    type="number"
+                    value={newProject.allocated_amount}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        allocated_amount: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="e.g., 2000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="project-available">Available Amount</Label>
+                  <Input
+                    id="project-available"
+                    type="number"
+                    value={newProject.available_amount}
+                    onChange={(e) =>
+                      setNewProject({
+                        ...newProject,
+                        available_amount: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="e.g., 0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="project-gold-standard">
+                  Gold Standard Confirmation
+                </Label>
+                <Input
+                  id="project-gold-standard"
+                  value={newProject.gold_standard_confirmation}
+                  onChange={(e) =>
+                    setNewProject({
+                      ...newProject,
+                      gold_standard_confirmation: e.target.value,
+                    })
+                  }
+                  placeholder="Gold standard details"
+                />
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Switch
+                  checked={newProject.is_default}
+                  onCheckedChange={() =>
+                    setNewProject({
+                      ...newProject,
+                      is_default: !newProject.is_default,
+                    })
+                  }
+                  id="project-default"
+                />
+                <Label htmlFor="project-default">
+                  {newProject.is_default ? "Default" : "Not Default"}
+                </Label>
+              </div>
+            </div>
+            <div className="flex justify-center px-4 pb-4">
+              <Button
+                onClick={handleCreateProject}
+                disabled={loading}
+                className="bg-carbon-gradient w-full"
+              >
+                {loading ? "Creating..." : "Add Project"}
               </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-background border">
-              <DialogHeader className="text-center">
-                <DialogTitle>Add Offset Project</DialogTitle>
-                <DialogDescription>
-                  Register a new environmental offset project.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 p-4 max-h-96 overflow-y-auto px-4">
-                <div className="space-y-2">
-                  <Label htmlFor="project-name">Project Name</Label>
-                  <Input
-                    id="project-name"
-                    value={newProject.name}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, name: e.target.value })
-                    }
-                    placeholder="e.g., Amazon Rainforest Restoration"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-image">Image URL</Label>
-                  <Input
-                    id="project-image"
-                    value={newProject.image}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, image: e.target.value })
-                    }
-                    placeholder="https://..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-owner">Owner</Label>
-                  <Input
-                    id="project-owner"
-                    value={newProject.owner}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, owner: e.target.value })
-                    }
-                    placeholder="Organization or Individual"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-site">Project Site (URL)</Label>
-                  <Input
-                    id="project-site"
-                    value={newProject.site}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, site: e.target.value })
-                    }
-                    placeholder="https://..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-location">Location</Label>
-                  <Input
-                    id="project-location"
-                    value={newProject.location}
-                    onChange={(e) =>
-                      setNewProject({ ...newProject, location: e.target.value })
-                    }
-                    placeholder="e.g., Brazil, Amazon Basin"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-description">Short Description</Label>
-                  <Textarea
-                    id="project-description"
-                    value={newProject.description}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        description: e.target.value,
-                      })
-                    }
-                    placeholder="Short summary of project..."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-more-details">More Details</Label>
-                  <Textarea
-                    id="project-more-details"
-                    value={newProject.moreDetails}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        moreDetails: e.target.value,
-                      })
-                    }
-                    placeholder="Detailed description, methodology, monitoring, etc."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-estimated-offset">
-                    Estimated Offset
-                  </Label>
-                  <Input
-                    id="project-estimated-offset"
-                    value={newProject.estimatedOffset}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        estimatedOffset: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., 150,000 tCO₂e/year"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-type">Project Type</Label>
-                  <Input
-                    id="project-type"
-                    value={newProject.projectType}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        projectType: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., Reforestation, Renewable Energy"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-startdate">Start Date</Label>
-                  <Input
-                    id="project-startdate"
-                    type="date"
-                    value={newProject.startDate}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        startDate: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="project-enddate">End Date</Label>
-                  <Input
-                    id="project-enddate"
-                    type="date"
-                    value={newProject.endDate}
-                    onChange={(e) =>
-                      setNewProject({
-                        ...newProject,
-                        endDate: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <Switch
-                    checked={newProject.isActive}
-                    onCheckedChange={() =>
-                      setNewProject({
-                        ...newProject,
-                        isActive: !newProject.isActive,
-                      })
-                    }
-                    id="project-active"
-                  />
-                  <Label htmlFor="project-active">
-                    {newProject.isActive ? "Active" : "Inactive"}
-                  </Label>
-                </div>
-              </div>
-              <div className="flex justify-center px-4 pb-4">
-                <Button
-                  onClick={handleCreateProject}
-                  className="bg-carbon-gradient w-full"
-                >
-                  Add Project
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Cards - Responsive grid */}
-      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {projects.map((project) => (
+      {/* Cards - Responsive grid with 3 columns for large screens */}
+      <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {displayedProjects.map((project) => (
           <Card
             key={project.id}
-            className="flex flex-col cursor-pointer transition-shadow ring-offset-2 ring-carbon-200 hover:ring-2"
+            className="flex flex-col transition-shadow ring-offset-2 ring-carbon-200 hover:ring-2 cursor-pointer"
             onClick={() => setSelectedProject(project)}
-            title="Click to view details"
           >
-            <div className="h-36 sm:h-40 w-full relative rounded-t overflow-hidden flex-shrink-0">
+            <div className="h-48 sm:h-52 w-full relative rounded-t overflow-hidden flex-shrink-0">
               <img
-                src={project.image}
+                src={project.image_url || "/placeholder-project.jpg"}
                 alt={project.name}
                 className="object-cover w-full h-full"
                 loading="lazy"
               />
-              {!project.isActive && (
-                <div className="absolute top-2 right-2 bg-red-600 text-white text-xs px-2 py-1 rounded font-bold z-10">
-                  Inactive
-                </div>
-              )}
+              <StatusBadge
+                isActive={project.is_active}
+                isDefault={project.is_default}
+              />
             </div>
             <CardContent className="flex flex-col flex-1 pt-3 pb-4">
-              <div className="font-bold text-lg mb-1 flex items-center gap-2">
-                {project.name}
-                <a
-                  href={project.site}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-1 text-carbon-600 hover:text-carbon-800"
-                  onClick={(e) => e.stopPropagation()}
-                  title="Open project site"
-                >
-                  <ExternalLink className="w-4 h-4 inline" />
-                </a>
-              </div>
-              <div className="text-sm text-muted-foreground mb-2">
+              <div className="font-bold text-lg mb-1">{project.name}</div>
+              <div className="text-sm text-muted-foreground mb-2 line-clamp-2">
                 {project.description}
               </div>
-              <div className="flex flex-wrap gap-2 items-center text-xs text-muted-foreground mt-auto">
-                <span className="flex items-center gap-1">
-                  <User className="w-4 h-4" /> {project.owner}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-4 h-4" /> {project.location}
-                </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-blue-700 hover:bg-accent px-2 py-1"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedProject(project);
-                  }}
-                  title="View details"
-                >
-                  <Eye className="w-4 h-4 mr-1" /> View
-                </Button>
-                {role === "super_admin" && (
-                  <>
-                    <Dialog
-                      open={editProjectId === project.id}
-                      onOpenChange={(open) => !open && setEditProjectId(null)}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-green-700 hover:bg-accent px-2 py-1"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEditProject(project);
-                          }}
-                          title="Edit project"
-                        >
-                          <Edit className="w-4 h-4 mr-1" /> Edit
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[600px] bg-background border">
-                        <DialogHeader className="text-center">
-                          <DialogTitle>Edit Project</DialogTitle>
-                          <DialogDescription>
-                            Update offset project details.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 p-4 max-h-96 overflow-y-auto px-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-name">
-                              Project Name
-                            </Label>
-                            <Input
-                              id="edit-project-name"
-                              value={editProject.name}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  name: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-image">
-                              Image URL
-                            </Label>
-                            <Input
-                              id="edit-project-image"
-                              value={editProject.image}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  image: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-owner">Owner</Label>
-                            <Input
-                              id="edit-project-owner"
-                              value={editProject.owner}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  owner: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-site">
-                              Project Site (URL)
-                            </Label>
-                            <Input
-                              id="edit-project-site"
-                              value={editProject.site}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  site: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-location">
-                              Location
-                            </Label>
-                            <Input
-                              id="edit-project-location"
-                              value={editProject.location}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  location: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-description">
-                              Short Description
-                            </Label>
-                            <Textarea
-                              id="edit-project-description"
-                              value={editProject.description}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  description: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-more-details">
-                              More Details
-                            </Label>
-                            <Textarea
-                              id="edit-project-more-details"
-                              value={editProject.moreDetails}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  moreDetails: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-estimated-offset">
-                              Estimated Offset
-                            </Label>
-                            <Input
-                              id="edit-project-estimated-offset"
-                              value={editProject.estimatedOffset}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  estimatedOffset: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-type">
-                              Project Type
-                            </Label>
-                            <Input
-                              id="edit-project-type"
-                              value={editProject.projectType}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  projectType: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-startdate">
-                              Start Date
-                            </Label>
-                            <Input
-                              id="edit-project-startdate"
-                              type="date"
-                              value={editProject.startDate}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  startDate: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-project-enddate">
-                              End Date
-                            </Label>
-                            <Input
-                              id="edit-project-enddate"
-                              type="date"
-                              value={editProject.endDate}
-                              onChange={(e) =>
-                                setEditProject({
-                                  ...editProject,
-                                  endDate: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Switch
-                              checked={editProject.isActive}
-                              onCheckedChange={() =>
-                                setEditProject({
-                                  ...editProject,
-                                  isActive: !editProject.isActive,
-                                })
-                              }
-                              id="edit-project-active"
-                            />
-                            <Label htmlFor="edit-project-active">
-                              {editProject.isActive ? "Active" : "Inactive"}
-                            </Label>
-                          </div>
-                        </div>
-                        <div className="flex justify-center px-4 pb-4 gap-2">
-                          <Button
-                            onClick={handleSaveEditProject}
-                            className="bg-carbon-gradient w-full"
-                          >
-                            Save Changes
-                          </Button>
-                          <DialogClose asChild>
-                            <Button variant="outline" className="w-full">
-                              Cancel
-                            </Button>
-                          </DialogClose>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-red-700 hover:bg-accent px-2 py-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteProject(project.id);
-                      }}
-                      title="Delete project"
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" /> Delete
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className={`px-2 py-1 ${
-                        project.isActive ? "text-gray-700" : "text-green-700"
-                      }`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleProject(project.id);
-                      }}
-                      title={
-                        project.isActive
-                          ? "Deactivate project"
-                          : "Activate project"
-                      }
-                    >
-                      <Globe className="w-4 h-4 mr-1" />
-                      {project.isActive ? "Deactivate" : "Activate"}
-                    </Button>
-                  </>
-                )}
+              <div className="text-xs text-muted-foreground mt-auto mb-3">
+                <div className="font-semibold">
+                  ${project.price_per_ton} {project.currency}/ton
+                </div>
+                <div>Available: {project.available_amount} tons</div>
               </div>
+
+              <ActionButtons project={project} />
             </CardContent>
           </Card>
         ))}
@@ -748,117 +632,248 @@ export default function OffsetProjects() {
         )}
       </div>
 
-      {/* Project View Dialog */}
-      <Dialog
+      {/* Load More / See Less Button */}
+      {projects.length >= 6 && (hasMoreProjects || canShowLess) && (
+        <div className="flex justify-center">
+          <motion.button
+            onClick={hasMoreProjects ? loadMoreProjects : showLessProjects}
+            disabled={loading}
+            className="mt-12 px-8 py-3 bg-btn-primary hover:bg-btn-primary-hover disabled:bg-btn-primary/50 text-white font-semibold rounded-lg transition-colors duration-200 flex items-center gap-2"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                Loading...
+              </>
+            ) : hasMoreProjects ? (
+              <>
+                Load More Projects
+                <ArrowRight className="w-5 h-5" />
+              </>
+            ) : (
+              <>
+                See Less Projects
+                <ArrowRight className="w-5 h-5 rotate-180" />
+              </>
+            )}
+          </motion.button>
+        </div>
+      )}
+
+      {/* Project Details Dialog */}
+      <ProjectDetailsDialog
+        project={selectedProject}
         open={!!selectedProject}
         onOpenChange={() => setSelectedProject(null)}
-      >
-        <DialogContent className="max-w-4xl w-full bg-background border overflow-y-auto max-h-[90vh]">
-          {selectedProject && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-2xl">
-                  {selectedProject.name}
-                  <a
-                    href={selectedProject.site}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-1 text-carbon-600 hover:text-carbon-800"
-                    title="Open project site"
-                  >
-                    <ExternalLink className="w-5 h-5" />
-                  </a>
-                </DialogTitle>
-                <DialogDescription className="mt-2 text-base">
-                  <div className="flex flex-wrap gap-4 items-center text-base">
-                    <span className="flex items-center gap-1">
-                      <User className="w-5 h-5" /> <b>Owner:</b>{" "}
-                      {selectedProject.owner}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-5 h-5" /> <b>Location:</b>{" "}
-                      {selectedProject.location}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Globe className="w-5 h-5" /> <b>Status:</b>{" "}
-                      {selectedProject.isActive ? "Active" : "Inactive"}
-                    </span>
-                    {selectedProject.projectType && (
-                      <span className="flex items-center gap-1">
-                        <b>Type:</b> {selectedProject.projectType}
-                      </span>
-                    )}
-                  </div>
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-col md:flex-row gap-8 mt-4">
-                <img
-                  src={selectedProject.image}
-                  alt={selectedProject.name}
-                  className="object-cover rounded w-full md:w-96 h-56 md:h-96 border"
+      />
+
+      {/* Edit Project Dialog */}
+      {editProjectId !== null && (
+        <Dialog
+          open={editProjectId !== null}
+          onOpenChange={(open) => !open && setEditProjectId(null)}
+        >
+          <DialogContent className="sm:max-w-[600px] bg-background border max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="text-center">
+              <DialogTitle>Edit Project</DialogTitle>
+              <DialogDescription>
+                Update offset project details.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 p-4 px-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-project-name">Project Name</Label>
+                <Input
+                  id="edit-project-name"
+                  value={editProject.name}
+                  onChange={(e) =>
+                    setEditProject({
+                      ...editProject,
+                      name: e.target.value,
+                    })
+                  }
                 />
-                <div className="flex-1 space-y-4">
-                  <div>
-                    <span className="font-semibold text-lg">
-                      Short Description:
-                    </span>
-                    <div className="mt-1 text-base">
-                      {selectedProject.description}
-                    </div>
+              </div>
+
+              {/* Image Upload with Preview for Edit */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-project-image">Project Image</Label>
+                <Input
+                  id="edit-project-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, true)}
+                />
+                <div className="text-sm text-muted-foreground">
+                  Current image will be replaced if you upload a new one.
+                </div>
+                {editImagePreview && (
+                  <div className="relative w-32 h-32 rounded-lg overflow-hidden bg-gray-100 border">
+                    <img
+                      src={editImagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => clearImage(true)}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
-                  <div>
-                    <span className="font-semibold text-lg">
-                      Detailed Overview:
-                    </span>
-                    <div className="mt-1 whitespace-pre-line text-base">
-                      {selectedProject.moreDetails}
-                    </div>
-                  </div>
-                  {selectedProject.estimatedOffset && (
-                    <div>
-                      <span className="font-semibold">Estimated Offset: </span>
-                      <span>{selectedProject.estimatedOffset}</span>
+                )}
+                {!editImagePreview &&
+                  projects.find((p) => p.id === editProjectId)?.image_url && (
+                    <div className="w-32 h-32 rounded-lg overflow-hidden bg-gray-100 border">
+                      <img
+                        src={
+                          projects.find((p) => p.id === editProjectId)
+                            ?.image_url || ""
+                        }
+                        alt="Current image"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="text-xs text-center text-muted-foreground mt-1">
+                        Current Image
+                      </div>
                     </div>
                   )}
-                  <div className="flex flex-wrap gap-6 mt-2">
-                    {selectedProject.startDate && (
-                      <div>
-                        <span className="font-semibold">Start Date: </span>
-                        <span>{selectedProject.startDate}</span>
-                      </div>
-                    )}
-                    {selectedProject.endDate && (
-                      <div>
-                        <span className="font-semibold">End Date: </span>
-                        <span>{selectedProject.endDate}</span>
-                      </div>
-                    )}
-                    {selectedProject.lastUpdated && (
-                      <div>
-                        <span className="font-semibold">Last Updated: </span>
-                        <span>{selectedProject.lastUpdated}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-semibold">
-                      Official Project Link:{" "}
-                    </span>
-                    <a
-                      href={selectedProject.site}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-700 hover:underline break-all"
-                    >
-                      {selectedProject.site}
-                    </a>
-                  </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-project-description">Description</Label>
+                <Textarea
+                  id="edit-project-description"
+                  value={editProject.description}
+                  onChange={(e) =>
+                    setEditProject({
+                      ...editProject,
+                      description: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-project-price">Price per Ton</Label>
+                  <Input
+                    id="edit-project-price"
+                    type="number"
+                    step="0.01"
+                    value={editProject.price_per_ton}
+                    onChange={(e) =>
+                      setEditProject({
+                        ...editProject,
+                        price_per_ton: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-project-currency">Currency</Label>
+                  <Input
+                    id="edit-project-currency"
+                    value={editProject.currency}
+                    onChange={(e) =>
+                      setEditProject({
+                        ...editProject,
+                        currency: e.target.value,
+                      })
+                    }
+                  />
                 </div>
               </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-project-allocated">
+                    Allocated Amount
+                  </Label>
+                  <Input
+                    id="edit-project-allocated"
+                    type="number"
+                    value={editProject.allocated_amount}
+                    onChange={(e) =>
+                      setEditProject({
+                        ...editProject,
+                        allocated_amount: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-project-available">
+                    Available Amount
+                  </Label>
+                  <Input
+                    id="edit-project-available"
+                    type="number"
+                    value={editProject.available_amount}
+                    onChange={(e) =>
+                      setEditProject({
+                        ...editProject,
+                        available_amount: parseInt(e.target.value) || 0,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-project-gold-standard">
+                  Gold Standard
+                </Label>
+                <Input
+                  id="edit-project-gold-standard"
+                  value={editProject.gold_standard_confirmation}
+                  onChange={(e) =>
+                    setEditProject({
+                      ...editProject,
+                      gold_standard_confirmation: e.target.value,
+                    })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center gap-2 mt-2">
+                <Switch
+                  checked={editProject.is_default}
+                  onCheckedChange={() =>
+                    setEditProject({
+                      ...editProject,
+                      is_default: !editProject.is_default,
+                    })
+                  }
+                  id="edit-project-default"
+                />
+                <Label htmlFor="edit-project-default">
+                  {editProject.is_default ? "Default" : "Not Default"}
+                </Label>
+              </div>
+            </div>
+            <div className="flex justify-center px-4 pb-4 gap-2">
+              <Button
+                onClick={handleSaveEditProject}
+                disabled={loading}
+                className="bg-carbon-gradient w-full"
+              >
+                {loading ? "Saving..." : "Save Changes"}
+              </Button>
+              <DialogClose asChild>
+                <Button variant="outline" className="w-full">
+                  Cancel
+                </Button>
+              </DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
