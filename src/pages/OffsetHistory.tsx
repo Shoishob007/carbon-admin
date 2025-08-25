@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,14 +14,16 @@ import {
   Search,
   Mail,
   AlertCircle,
-  Hash,
   Coins,
-  CreditCard,
-  User,
-  BadgeCheck,
+  Leaf,
+  DollarSign,
+  Loader2,
+  FileText,
 } from "lucide-react";
 import { useOffsetStore } from "@/store/offsetStore";
 import { useAuthStore } from "@/store/auth";
+import { usePagination } from "@/hooks/usePagination";
+import { Pagination } from "@/components/Pagination";
 
 interface OffsetHistoryItem {
   confirmation_number: string;
@@ -28,6 +36,7 @@ interface OffsetHistoryItem {
   gold_standard_confirmation: string;
   date_of_issue: string;
   certification_name: string;
+  user_email: string;
 }
 
 export default function OffsetHistory() {
@@ -36,20 +45,48 @@ export default function OffsetHistory() {
     offsetHistory,
     historyLoading,
     historyError,
+    fetchOffsetHistory,
     fetchOffsetHistoryByEmail,
   } = useOffsetStore();
 
   const [email, setEmail] = useState("");
+  const [searchEmail, setSearchEmail] = useState("");
+
+  // pagination
+  const {
+    currentPage,
+    itemsPerPage,
+    paginate,
+    goToPage,
+    handleItemsPerPageChange,
+  } = usePagination<OffsetHistoryItem>(5);
+
+  const { paginatedItems, totalItems, totalPages, startIndex, endIndex } =
+    paginate(offsetHistory);
+
+  // all history on mount
+  useEffect(() => {
+    if (accessToken) {
+      fetchOffsetHistory(accessToken);
+    }
+  }, [accessToken, fetchOffsetHistory]);
 
   const handleSearch = () => {
     if (!email.trim()) return;
-    fetchOffsetHistoryByEmail(email, accessToken);
+    setSearchEmail(email.trim());
+    fetchOffsetHistoryByEmail(email.trim(), accessToken);
+  };
+
+  const handleClearSearch = () => {
+    setEmail("");
+    setSearchEmail("");
+    if (accessToken) {
+      fetchOffsetHistory(accessToken);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
+    if (e.key === "Enter") handleSearch();
   };
 
   const formatDate = (dateString: string) => {
@@ -67,124 +104,184 @@ export default function OffsetHistory() {
     }).format(amount);
   };
 
-  // Empty state
-  if (offsetHistory.length === 0 && !historyLoading && !historyError) {
+  // Statistics
+  const totalOffsets = offsetHistory.length;
+  const totalTonnes = offsetHistory.reduce(
+    (sum, offset) => sum + offset.carbon_emission_metric_tons,
+    0
+  );
+  const totalInvestment = offsetHistory.reduce(
+    (sum, offset) => sum + offset.total_cost_usd,
+    0
+  );
+  const uniqueProjects = new Set(
+    offsetHistory.map((offset) => offset.project_name)
+  ).size;
+
+  if (historyLoading && offsetHistory.length === 0) {
     return (
-      <div className="space-y-8 animate-fade-in max-w-3xl mx-auto px-4">
-        <header className="mb-6 text-center">
-          <h1 className="text-4xl font-extrabold text-foreground">
-            Offset History
-          </h1>
-          <p className="text-lg text-muted-foreground mt-2">
-            Search for carbon offset history by email address
-          </p>
-        </header>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading offset history...</span>
+      </div>
+    );
+  }
 
-        <section className="bg-card rounded-lg border border-gray-200 p-8 shadow-md max-w-xl mx-auto">
-          <Label
-            htmlFor="email-search"
-            className="mb-3 block text-sm font-semibold text-gray-700 flex items-center gap-2"
+  if (historyError && offsetHistory.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center text-red-600">
+          <p>Error loading offset history: {historyError}</p>
+          <Button
+            onClick={() => fetchOffsetHistory(accessToken)}
+            className="mt-4"
           >
-            <Mail className="w-5 h-5 text-gray-500" /> Email Address
-          </Label>
-          <div className="flex gap-4">
-            <Input
-              id="email-search"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Enter email address to search"
-              className="flex-grow rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
-              autoComplete="email"
-              aria-label="Email address input"
-            />
-            <Button
-              onClick={handleSearch}
-              disabled={historyLoading}
-              className="px-6 bg-carbon-gradient hover:bg-carbon-600 text-white font-semibold rounded-md shadow"
-              aria-label="Search offset history"
-            >
-              {historyLoading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto" />
-              ) : (
-                <Search className="w-5 h-5 mr-2 inline-block" />
-              )}
-              {historyLoading ? "Searching..." : "Search"}
-            </Button>
-          </div>
-        </section>
-
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="mt-16 text-center max-w-md mx-auto text-gray-500"
-        >
-          <p className="text-xl font-light leading-relaxed">
-            Enter an email address above to search for carbon offset
-            certificates. Results will appear here once you perform a search.
-          </p>
-        </motion.div>
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-6 space-y-10 animate-fade-in">
-      <header className="mb-8 text-center">
-        <h1 className="text-4xl font-extrabold text-foreground">
-          Offset History
-        </h1>
-        <p className="text-lg text-muted-foreground mt-2">
-          {offsetHistory.length > 0
-            ? `Found ${offsetHistory.length} offset certificate${
-                offsetHistory.length > 1 ? "s" : ""
-              } for ${email}`
-            : "Search for carbon offset history by email address"}
-        </p>
-      </header>
-
-      <section className="bg-card rounded-lg border border-gray-200 p-8 shadow-md max-w-xl mx-auto">
-        <Label
-          htmlFor="email-search"
-          className="mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2"
-        >
-          <Mail className="w-5 h-5 text-gray-500" /> Email Address
-        </Label>
-        <div className="flex gap-4">
-          <Input
-            id="email-search"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Enter email address to search"
-            className="flex-grow rounded-md border border-gray-300 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
-            autoComplete="email"
-            aria-label="Email address input"
-          />
-          <Button
-            onClick={handleSearch}
-            disabled={historyLoading}
-            className="px-6 bg-carbon-gradient hover:bg-carbon-600 text-white font-semibold rounded-md shadow"
-            aria-label="Search offset history"
-          >
-            {historyLoading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto" />
-            ) : (
-              <Search className="w-5 h-5 mr-2 inline-block" />
-            )}
-            {historyLoading ? "Searching..." : "Search"}
-          </Button>
+    <div className="space-y-6 animate-fade-in mx-auto px-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">
+            Carbon Offset History
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Track and manage your carbon offset certificates
+          </p>
         </div>
-      </section>
+      </div>
 
+      {/* Statistics Cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Offsets</CardTitle>
+            <Leaf className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-700">
+              {totalOffsets}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Carbon offset certificates
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Tonnes</CardTitle>
+            <Coins className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-700">
+              {totalTonnes.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">CO₂ tonnes offset</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Investment
+            </CardTitle>
+            <DollarSign className="h-4 w-4 text-amber-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-700">
+              {formatCurrency(totalInvestment)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Total amount invested
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Projects</CardTitle>
+            <FileText className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-700">
+              {uniqueProjects}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Unique projects supported
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search Section */}
+      <Card>
+        <CardHeader className="">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <CardTitle>Search Offset History</CardTitle>
+              <CardDescription>
+                {searchEmail
+                  ? `Showing results for: ${searchEmail}`
+                  : "Search for carbon offset history by email address"}
+              </CardDescription>
+            </div>
+
+            {/* Right side */}
+            <div className="flex flex-col sm:flex-row gap-4 items-end sm:items-center">
+              <div className="flex-1 sm:w-64">
+                <Label
+                  htmlFor="email-search"
+                  className="flex items-center gap-2 mb-2 sm:mb-0"
+                >
+                  <Mail className="w-4 h-4 text-gray-500" /> Email
+                </Label>
+                <Input
+                  id="email-search"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Enter email address"
+                  autoComplete="email"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSearch}
+                  disabled={historyLoading || !email.trim()}
+                  className="bg-carbon-gradient hover:bg-carbon-600"
+                >
+                  {historyLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Search className="w-4 h-4 mr-2" />
+                  )}
+                  {historyLoading ? "Searching..." : "Search"}
+                </Button>
+                {searchEmail && (
+                  <Button onClick={handleClearSearch} variant="outline">
+                    Clear
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Error */}
       {historyError && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="max-w-xl mx-auto bg-red-50 border border-red-300 rounded-lg p-6 flex items-start gap-4 text-red-700"
+          className="bg-red-50 border border-red-300 rounded-lg p-6 flex items-start gap-4 text-red-700"
         >
           <AlertCircle className="w-6 h-6 flex-shrink-0" />
           <div>
@@ -194,108 +291,119 @@ export default function OffsetHistory() {
         </motion.div>
       )}
 
-      {historyLoading && (
-        <div className="flex items-center justify-center h-48">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
-            <p className="text-muted-foreground text-lg">
-              Searching offset history...
-            </p>
-          </div>
-        </div>
-      )}
-
-      {offsetHistory.length > 0 && (
-        <div className="grid gap-6 mx-auto">
-          {offsetHistory.map((offset, index) => (
+      {/* Results */}
+      {paginatedItems.length > 0 ? (
+        <div className="space-y-4">
+          {paginatedItems.map((offset, index) => (
             <motion.div
               key={offset.confirmation_number}
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, delay: index * 0.05 }}
+              transition={{ duration: 0.2, delay: index * 0.03 }}
             >
-              <Card className="rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
-                <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Project Info */}
-                  <div className="space-y-3">
-                    <h3 className="text-xl font-semibold text-foreground">
-                      {offset.project_name}
-                    </h3>
-                    <p className="flex items-center text-sm text-muted-foreground gap-2">
-                      <Hash className="w-4 h-4" /> Confirmation #:{" "}
-                      {offset.confirmation_number}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      Certificate #: {offset.certificate_number}
-                    </p>
-                  </div>
+              <Card className="hover:shadow-md transition-all border border-gray-200">
+                <CardContent className="p-6">
+                  <div className="grid md:grid-cols-5 gap-6 text-sm">
+                    {/* Project */}
+                    <div>
+                      <p className="text-xs text-muted-foreground">Project</p>
+                      <p className="font-semibold text-foreground">
+                        {offset.project_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Conf #: {offset.confirmation_number}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Cert #: {offset.certificate_number}
+                      </p>
+                    </div>
 
-                  {/* Metrics */}
-                  <div className="flex flex-col justify-center gap-4">
-                    <div className="flex items-center gap-3">
-                      <Coins className="w-5 h-5 text-blue-600" />
-                      <div>
-                        <p className="font-semibold">
-                          {offset.carbon_emission_metric_tons}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Metric Tons CO₂
-                        </p>
-                      </div>
+                    {/* Tonnes */}
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Tonnes CO₂
+                      </p>
+                      <p className="font-semibold text-blue-600">
+                        {offset.carbon_emission_metric_tons.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ${offset.price_per_metric_ton_usd.toFixed(2)}/ton
+                      </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="w-5 h-5 text-amber-600" />
-                      <div>
-                        <p className="font-semibold">
-                          {formatCurrency(offset.total_cost_usd)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Total Cost
-                        </p>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* Certification & Dates */}
-                  <div className="md:border-l border-gray-200 md:pl-6 flex flex-col justify-between gap-4 text-sm">
-                    <div className="flex items-center gap-3">
-                      <User className="w-5 h-5 text-purple-600" />
-                      <div>
-                        <p className="font-semibold">
-                          {offset.certification_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Certified To
-                        </p>
-                      </div>
+                    {/* Cost */}
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Total Cost
+                      </p>
+                      <p className="font-semibold text-amber-600">
+                        {formatCurrency(offset.total_cost_usd)}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <BadgeCheck className="w-5 h-5 text-green-600" />
-                      <div>
-                        <p className="font-semibold">
-                          {offset.gold_standard_confirmation}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Standard
-                        </p>
-                      </div>
+
+                    {/* Certification */}
+                    <div>
+                      <p className="text-xs text-muted-foreground">
+                        Certified To
+                      </p>
+                      <p className="font-semibold text-purple-600">
+                        {offset.certification_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {offset.gold_standard_confirmation}
+                      </p>
                     </div>
-                    <div className="flex justify-between gap-6 text-xs">
-                      <div>
-                        <p className="font-semibold text-foreground">Issued</p>
-                        <p>{formatDate(offset.date_of_issue)}</p>
-                      </div>
-                      <div>
-                        <p className="font-semibold text-foreground">Expires</p>
-                        <p>{formatDate(offset.carbon_expiration_date)}</p>
-                      </div>
+
+                    {/* Dates */}
+                    <div>
+                      <p className="text-xs text-muted-foreground">Issued</p>
+                      <p className="font-semibold">
+                        {formatDate(offset.date_of_issue)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Expires
+                      </p>
+                      <p className="font-semibold">
+                        {formatDate(offset.carbon_expiration_date)}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
           ))}
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={goToPage}
+            onItemsPerPageChange={handleItemsPerPageChange}
+            itemsPerPage={itemsPerPage}
+            totalItems={totalItems}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            showItemsPerPage={true}
+          />
         </div>
+      ) : (
+        !historyLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-12 text-muted-foreground"
+          >
+            <FileText className="w-12 h-12 mx-auto text-gray-300 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">
+              No offset certificates found
+            </h3>
+            <p>
+              {searchEmail
+                ? `No carbon offset certificates found for ${searchEmail}`
+                : "No carbon offset certificates found. Start by searching for an email address."}
+            </p>
+          </motion.div>
+        )
       )}
     </div>
   );

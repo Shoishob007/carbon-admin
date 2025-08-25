@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { create } from 'zustand';
+import { create } from "zustand";
 
 interface Project {
   id: number;
@@ -27,15 +27,26 @@ interface OffsetStoreState {
   totalProjects: number;
   fetchMyOffsets: (accessToken: string) => Promise<void>;
   fetchProjects: () => Promise<void>;
-  createProject: (projectData: FormData, accessToken: string) => Promise<boolean>;
-  updateProject: (id: number, projectData: FormData, accessToken: string) => Promise<boolean>;
+  createProject: (
+    projectData: FormData,
+    accessToken: string
+  ) => Promise<boolean>;
+  updateProject: (
+    id: number,
+    projectData: FormData,
+    accessToken: string
+  ) => Promise<boolean>;
   deleteProject: (id: number, accessToken: string) => Promise<boolean>;
   loadMoreProjects: () => void;
   showLessProjects: () => void;
   offsetHistory: any[];
   historyLoading: boolean;
   historyError: string | null;
-  fetchOffsetHistoryByEmail: (email: string, accessToken: string) => Promise<void>;
+  fetchOffsetHistory: (accessToken: string) => Promise<void>;
+  fetchOffsetHistoryByEmail: (
+    email: string,
+    accessToken: string
+  ) => Promise<void>;
 }
 
 export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
@@ -47,7 +58,7 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
   currentPage: 1,
   itemsPerPage: 6,
   totalProjects: 0,
-    offsetHistory: [],
+  offsetHistory: [],
   historyLoading: false,
   historyError: null,
 
@@ -57,23 +68,23 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/offset/user/me/offsets/`,
         {
-          method: 'GET',
+          method: "GET",
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch offset projects');
+        throw new Error("Failed to fetch offset projects");
       }
 
       const data = await response.json();
       set({ myOffsets: data, loading: false });
     } catch (err: any) {
       set({ error: err.message, loading: false });
-      console.error('Error fetching offset projects:', err);
+      console.error("Error fetching offset projects:", err);
     }
   },
 
@@ -84,15 +95,17 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
       const projectsRes = await fetch(
         `${import.meta.env.VITE_API_URL}/api/offset/projects/`
       );
-      if (!projectsRes.ok) throw new Error('Failed to fetch projects');
+      if (!projectsRes.ok) throw new Error("Failed to fetch projects");
 
       const projectsData = await projectsRes.json();
 
       // fetch default projects
       const defaultRes = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/offset/projects/?is_active=true&is_default=true`
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/offset/projects/?is_active=true&is_default=true`
       );
-      if (!defaultRes.ok) throw new Error('Failed to fetch default projects');
+      if (!defaultRes.ok) throw new Error("Failed to fetch default projects");
 
       const defaultData = await defaultRes.json();
 
@@ -105,7 +118,7 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
       });
     } catch (err: any) {
       set({ error: err.message, loading: false });
-      console.error('Error fetching offset projects:', err);
+      console.error("Error fetching offset projects:", err);
     }
   },
 
@@ -115,16 +128,16 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/offset/projects/`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
           },
           body: formData,
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to create project');
+        throw new Error("Failed to create project");
       }
 
       // Refresh projects list
@@ -133,27 +146,31 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
       return true;
     } catch (err: any) {
       set({ error: err.message, loading: false });
-      console.error('Error creating project:', err);
+      console.error("Error creating project:", err);
       return false;
     }
   },
 
-  updateProject: async (id: number, formData: FormData, accessToken: string) => {
+  updateProject: async (
+    id: number,
+    formData: FormData,
+    accessToken: string
+  ) => {
     set({ loading: true, error: null });
     try {
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/offset/projects/${id}/`,
         {
-          method: 'PATCH',
+          method: "PATCH",
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
           },
           body: formData,
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to update project');
+        throw new Error("Failed to update project");
       }
 
       // Refresh projects list
@@ -162,7 +179,7 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
       return true;
     } catch (err: any) {
       set({ error: err.message, loading: false });
-      console.error('Error updating project:', err);
+      console.error("Error updating project:", err);
       return false;
     }
   },
@@ -173,16 +190,16 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/offset/projects/${id}/`,
         {
-          method: 'DELETE',
+          method: "DELETE",
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
           },
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to delete project');
+        throw new Error("Failed to delete project");
       }
 
       // Refresh projects list
@@ -191,7 +208,7 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
       return true;
     } catch (err: any) {
       set({ error: err.message, loading: false });
-      console.error('Error deleting project:', err);
+      console.error("Error deleting project:", err);
       return false;
     }
   },
@@ -205,29 +222,61 @@ export const useOffsetStore = create<OffsetStoreState>((set, get) => ({
     set({ currentPage: 1 });
   },
 
-  fetchOffsetHistoryByEmail: async (email: string, accessToken: string) => {
+  fetchOffsetHistory: async (accessToken: string) => {
     set({ historyLoading: true, historyError: null });
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/offset/history?user_email=${encodeURIComponent(email)}`,
+        `${import.meta.env.VITE_API_URL}/api/offset/history`,
         {
-          method: 'GET',
+          method: "GET",
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         }
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch offset history');
+        throw new Error("Failed to fetch offset history");
       }
 
-      const data = await response.json();
-      set({ offsetHistory: data, historyLoading: false });
+      const result = await response.json();
+
+      // data array from the response
+      set({ offsetHistory: result.data, historyLoading: false });
     } catch (err: any) {
       set({ historyError: err.message, historyLoading: false });
-      console.error('Error fetching offset history:', err);
+      console.error("Error fetching offset history:", err);
+    }
+  },
+
+  fetchOffsetHistoryByEmail: async (email: string, accessToken: string) => {
+    set({ historyLoading: true, historyError: null });
+    try {
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/offset/history?user_email=${encodeURIComponent(email)}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch offset history");
+      }
+
+      const result = await response.json();
+
+      // Extract the data array from the response
+      set({ offsetHistory: result.data, historyLoading: false });
+    } catch (err: any) {
+      set({ historyError: err.message, historyLoading: false });
+      console.error("Error fetching offset history:", err);
     }
   },
 }));
