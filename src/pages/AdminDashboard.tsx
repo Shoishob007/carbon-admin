@@ -54,33 +54,37 @@ export default function AdminDashboard() {
     loading: paymentsLoading,
     fetchPayments,
   } = useBillingStore();
-  const { queries } = useQueriesStore();
-  const {
-    offsetHistory,
-    fetchOffsetHistory,
-  } = useOffsetStore();
-  console.log("Offset History :: ", offsetHistory)
+  const { queries, fetchQueries } = useQueriesStore();
+  const { offsetHistory, fetchOffsetHistory } = useOffsetStore();
+  console.log("Offset History :: ", offsetHistory);
 
   const offsetProjects = useMemo(() => {
-  const colors = ["#166534", "#15803d", "#16a34a", "#22c55e", "#059669", "#10b981"];
-  
-  // occurrences of each gold_standard_confirmation
-  const projectCounts = offsetHistory.reduce((acc, offset) => {
-    const projectType = offset.gold_standard_confirmation || "Unknown";
-    acc[projectType] = (acc[projectType] || 0) + 1;
-    return acc;
-  }, {});
+    const colors = [
+      "#166534",
+      "#15803d",
+      "#16a34a",
+      "#22c55e",
+      "#059669",
+      "#10b981",
+    ];
 
-  const total = offsetHistory.length;
-  if (total === 0) return [];
+    // occurrences of each gold_standard_confirmation
+    const projectCounts = offsetHistory.reduce((acc, offset) => {
+      const projectType = offset.gold_standard_confirmation || "Unknown";
+      acc[projectType] = (acc[projectType] || 0) + 1;
+      return acc;
+    }, {});
 
-return Object.entries(projectCounts).map(([name, count], index) => ({
-  name,
-  value: Math.round((Number(count) / total) * 100),
-  count: Number(count),
-  color: colors[index % colors.length]
-}));
-}, [offsetHistory]);
+    const total = offsetHistory.length;
+    if (total === 0) return [];
+
+    return Object.entries(projectCounts).map(([name, count], index) => ({
+      name,
+      value: Math.round((Number(count) / total) * 100),
+      count: Number(count),
+      color: colors[index % colors.length],
+    }));
+  }, [offsetHistory]);
 
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
@@ -98,12 +102,22 @@ return Object.entries(projectCounts).map(([name, count], index) => ({
   // offset data from offsetHistory
   const offsetData = useMemo(() => {
     const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
-    
+
     const currentYear = new Date().getFullYear();
-    
+
     // all 12 months (Jan to Dec)
     const allMonthsData = monthNames.map((monthName, i) => ({
       month: `${monthName} ${currentYear.toString().slice(-2)}`,
@@ -134,15 +148,25 @@ return Object.entries(projectCounts).map(([name, count], index) => ({
     return allMonthsData.map(({ month, offset, count }) => ({
       month,
       offset: parseFloat(offset.toFixed(2)),
-      count
+      count,
     }));
   }, [offsetHistory]);
 
   // dynamic user growth data for all 12 months
   const userGrowthData = useMemo(() => {
     const monthNames = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
     ];
     const currentYear = new Date().getFullYear();
 
@@ -188,8 +212,11 @@ return Object.entries(projectCounts).map(([name, count], index) => ({
     if (accessToken) {
       fetchPlans(accessToken);
     }
-  }, [accessToken, user, fetchUsers, fetchPlans, role]);
-  
+    if (accessToken) {
+      fetchQueries(accessToken);
+    }
+  }, [accessToken, user, fetchUsers, fetchPlans, role, fetchQueries]);
+
   // all history on mount
   useEffect(() => {
     if (accessToken) {
@@ -403,15 +430,23 @@ return Object.entries(projectCounts).map(([name, count], index) => ({
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip content={<CustomTooltip active={undefined} payload={undefined} label={undefined} />} />
+                <Tooltip
+                  content={
+                    <CustomTooltip
+                      active={undefined}
+                      payload={undefined}
+                      label={undefined}
+                    />
+                  }
+                />
                 <Line
                   type="monotone"
                   dataKey="offset"
                   stroke="#22c55e"
                   strokeWidth={3}
                   name="Offsets (tons)"
-                  dot={{ fill: '#22c55e', strokeWidth: 2, r: 4 }}
-                  activeDot={{ r: 6, stroke: '#22c55e', strokeWidth: 2 }}
+                  dot={{ fill: "#22c55e", strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: "#22c55e", strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -422,10 +457,10 @@ return Object.entries(projectCounts).map(([name, count], index) => ({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5 text-carbon-600" />
-              Offset Projects Distribution
+              Offset Projects Certification
             </CardTitle>
             <CardDescription>
-              Breakdown of carbon offset project types
+              Breakdown of carbon offset project certifications
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -444,12 +479,14 @@ return Object.entries(projectCounts).map(([name, count], index) => ({
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip 
-  formatter={(value, name) => [
-    `${value}% (${offsetProjects.find(p => p.name === name)?.count || 0} projects)`, 
-    name
-  ]} 
-/>
+                <Tooltip
+                  formatter={(value, name) => [
+                    `${value}% (${
+                      offsetProjects.find((p) => p.name === name)?.count || 0
+                    } projects)`,
+                    name,
+                  ]}
+                />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -457,7 +494,7 @@ return Object.entries(projectCounts).map(([name, count], index) => ({
       </div>
 
       {/* User Growth Chart*/}
-<Card>
+      <Card>
         <CardHeader>
           <CardTitle>User Growth</CardTitle>
           <CardDescription>
@@ -522,13 +559,11 @@ return Object.entries(projectCounts).map(([name, count], index) => ({
                     {query.user_email}
                   </div>
 
-                  <div className="text-sm">
-                    <p className="font-medium text-muted-foreground mb-1">
-                      Interests:
+                  <div className="text-sm flex items-center gap-1">
+                    <p className="font-medium text-muted-foreground">
+                      Subject:
                     </p>
-                    <p className="text-xs">
-                      {truncateText(query.interests, 100)}
-                    </p>
+                    <p className="">{truncateText(query.subject, 100)}</p>
                   </div>
 
                   <div className="text-sm">

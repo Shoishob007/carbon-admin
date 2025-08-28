@@ -1,0 +1,241 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { usePagination } from "@/hooks/usePagination";
+import { Pagination } from "@/components/Pagination";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
+
+interface SubscriptionDetails {
+  plan_name?: string;
+  payment_frequency?: string;
+  status?: string;
+}
+
+interface Payment {
+  id: number;
+  user: number;
+  user_name?: string;
+  user_email?: string;
+  amount: string;
+  payment_date?: string;
+  payment_status: string;
+  transaction_id?: string;
+  payment_method?: string;
+  subscription_details?: SubscriptionDetails;
+  payment_type?: string;
+}
+
+interface CustomerPaymentsProps {
+  payments: Payment[];
+  subscriptionPayments: Payment[];
+  offsetPayments: Payment[];
+  role: string;
+  onStatusChange: (paymentId: number, newStatus: string) => void;
+  onViewDetails: (paymentId: number) => void;
+}
+
+export default function CustomerPayments({
+  payments,
+  subscriptionPayments,
+  offsetPayments,
+  role,
+  onStatusChange,
+  onViewDetails,
+}: CustomerPaymentsProps) {
+  const [paymentType, setPaymentType] = useState<string>("subscription");
+
+  const displayedPayments =
+    paymentType === "subscription"
+      ? subscriptionPayments.length > 0
+        ? subscriptionPayments
+        : payments
+      : offsetPayments;
+
+  // Pagination
+  const {
+    currentPage: paymentsCurrentPage,
+    itemsPerPage: paymentsItemsPerPage,
+    paginate: paginatePayments,
+    goToPage: goToPaymentsPage,
+    handleItemsPerPageChange: handlePaymentsItemsPerPageChange,
+  } = usePagination<Payment>(5);
+
+  const {
+    paginatedItems: paginatedPayments,
+    totalItems: totalPaymentsCount,
+    totalPages: totalPaymentsPages,
+    startIndex: paymentsStartIndex,
+    endIndex: paymentsEndIndex,
+  } = paginatePayments(displayedPayments);
+
+  console.log("paginatedPayments::  ", paginatedPayments);
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle>
+            {role === "business" ? "My Payments" : "Customer Payments"}
+          </CardTitle>
+          <CardDescription>
+            {role === "business"
+              ? "View your payment history"
+              : "View and manage customer payment records"}
+          </CardDescription>
+        </div>
+
+        {/* Payment Type Toggle */}
+        <Tabs
+          value={paymentType}
+          onValueChange={setPaymentType}
+          className="w-auto"
+        >
+          <TabsList>
+            <TabsTrigger value="subscription">Subscription</TabsTrigger>
+            <TabsTrigger value="offset">Offset</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </CardHeader>
+
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {role !== "business" && <TableHead>Customer</TableHead>}
+              <TableHead>Plan</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Payment Date</TableHead>
+              <TableHead>Payment Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedPayments.map((payment) => (
+              <TableRow key={payment.id}>
+                {role !== "business" && (
+                  <TableCell className="font-medium">
+                    <div>{payment.user_name || "N/A"}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {payment.user_email || "N/A"}
+                    </div>
+                  </TableCell>
+                )}
+                <TableCell>
+                  {payment.subscription_details?.plan_name || "N/A"}
+                  <div className="text-sm text-muted-foreground">
+                    {payment.subscription_details?.payment_frequency || "N/A"}
+                  </div>
+                </TableCell>
+                <TableCell>${payment.amount || "0.00"}</TableCell>
+                <TableCell>
+                  {payment.payment_date
+                    ? new Date(payment.payment_date).toLocaleDateString()
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {role === "super_admin" ? (
+                    <Select
+                      value={payment.payment_status}
+                      onValueChange={(value) =>
+                        onStatusChange(payment.id, value)
+                      }
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge
+                      variant={
+                        payment.payment_status === "completed"
+                          ? "default"
+                          : payment.payment_status === "pending"
+                          ? "secondary"
+                          : "destructive"
+                      }
+                      className={
+                        payment.payment_status === "completed"
+                          ? "bg-green-500"
+                          : payment.payment_status === "pending"
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
+                      }
+                    >
+                      {payment.payment_status
+                        ? payment.payment_status.charAt(0).toUpperCase() +
+                          payment.payment_status.slice(1)
+                        : "N/A"}
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewDetails(payment.user)}
+                  >
+                    <FileText className="h-4 w-4" />
+                    User Payment History
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+            {displayedPayments.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={role === "business" ? 6 : 7}
+                  className="text-center text-muted-foreground"
+                >
+                  No {paymentType} payment records found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+
+        {/* Payments Pagination */}
+        {displayedPayments.length > 0 && (
+          <Pagination
+            currentPage={paymentsCurrentPage}
+            totalPages={totalPaymentsPages}
+            onPageChange={goToPaymentsPage}
+            onItemsPerPageChange={handlePaymentsItemsPerPageChange}
+            itemsPerPage={paymentsItemsPerPage}
+            totalItems={totalPaymentsCount}
+            startIndex={paymentsStartIndex}
+            endIndex={paymentsEndIndex}
+            showItemsPerPage={true}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}

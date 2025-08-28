@@ -6,38 +6,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  FileText,
-  Receipt,
-  CheckCircle,
-  XCircle,
-  DollarSign,
-  Loader2,
-  Plus,
-  CreditCard,
-  Edit,
-} from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Receipt, DollarSign, Loader2, Plus } from "lucide-react";
 import { useBillingStore } from "@/store/billingStore";
 import { useAuthStore } from "@/store/auth";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { usePagination } from "@/hooks/usePagination";
-import { Pagination } from "@/components/Pagination";
 import PaymentDetailsDialog from "@/components/PaymentDetailsDialogue";
 import { useInvoiceStore } from "@/store/invoiceStore";
 import InvoiceDetailsDialog from "@/components/InvoiceDetailsDialogue";
@@ -46,6 +18,8 @@ import AddPaymentDialog from "@/components/AddPaymentDialogue";
 import AddInvoicePaymentDialog from "@/components/AddInvoicePaymentDialogue";
 import UpdateInvoiceDialog from "@/components/UpdateInvoiceDialogue";
 import CreateInvoiceDialog from "@/components/CreateInvoiceDialogue";
+import CustomerPayments from "@/components/CustomerPayments";
+import InvoicesComponent from "@/components/Invoices";
 
 interface SubscriptionDetails {
   plan_name?: string;
@@ -53,26 +27,17 @@ interface SubscriptionDetails {
   status?: string;
 }
 
-interface Payment {
-  id: number;
-  user: number;
-  user_name?: string;
-  user_email?: string;
-  amount: string;
-  payment_date?: string;
-  payment_status: string;
-  transaction_id?: string;
-  payment_method?: string;
-  subscription_details?: SubscriptionDetails;
-}
-
 export default function Billing() {
   const {
     payments,
+    subscriptionPayments,
+    offsetPayments,
     loading: paymentsLoading,
     error: paymentsError,
     selectedPayment,
     fetchPayments,
+    fetchOffsetPayments,
+    fetchSubscriptionPayments,
     fetchPaymentById,
     clearSelectedPayment,
     updatePaymentStatus,
@@ -93,6 +58,7 @@ export default function Billing() {
   } = useInvoiceStore();
 
   const { accessToken } = useAuthStore();
+  console.log("Access TTOken :: ", accessToken);
   const role = useAuthStore((state) => state.user?.role);
 
   // Dialog states
@@ -111,50 +77,22 @@ export default function Billing() {
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // pagination for payments
-  const {
-    currentPage: paymentsCurrentPage,
-    itemsPerPage: paymentsItemsPerPage,
-    paginate: paginatePayments,
-    goToPage: goToPaymentsPage,
-    handleItemsPerPageChange: handlePaymentsItemsPerPageChange,
-  } = usePagination<Payment>(5);
-
-  // for invoices
-  const {
-    currentPage: invoicesCurrentPage,
-    itemsPerPage: invoicesItemsPerPage,
-    paginate: paginateInvoices,
-    goToPage: goToInvoicesPage,
-    handleItemsPerPageChange: handleInvoicesItemsPerPageChange,
-  } = usePagination<Invoice>(5);
-
-  // paginated payments
-  const {
-    paginatedItems: paginatedPayments,
-    totalItems: totalPaymentsCount,
-    totalPages: totalPaymentsPages,
-    startIndex: paymentsStartIndex,
-    endIndex: paymentsEndIndex,
-  } = paginatePayments(payments);
-
-  // paginated invoices
-  const {
-    paginatedItems: paginatedInvoices,
-    totalItems: totalInvoicesCount,
-    totalPages: totalInvoicesPages,
-    startIndex: invoicesStartIndex,
-    endIndex: invoicesEndIndex,
-  } = paginateInvoices(invoices);
-
-  // payments on component mount
+  // Fetch data on component mount
   useEffect(() => {
     if (accessToken && role) {
       fetchPayments(accessToken, role);
       fetchInvoices(accessToken, role);
+      fetchOffsetPayments(accessToken, role);
+      fetchSubscriptionPayments(accessToken, role);
     }
-  }, [accessToken, role, fetchPayments, fetchInvoices]);
-  console.log("Payments :: ", payments)
+  }, [
+    accessToken,
+    role,
+    fetchPayments,
+    fetchInvoices,
+    fetchOffsetPayments,
+    fetchSubscriptionPayments,
+  ]);
 
   const pendingPayments = payments.filter(
     (p) => p.payment_status === "pending"
@@ -164,6 +102,7 @@ export default function Billing() {
     .filter((p) => p.payment_status === "completed")
     .reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
 
+  // Payment handlers
   const handleStatusChange = async (paymentId: number, newStatus: string) => {
     try {
       if (role === "super_admin" && accessToken) {
@@ -174,31 +113,20 @@ export default function Billing() {
     }
   };
 
-  const handleViewPaymentDetails = async (id: number) => {
+  const handleViewPaymentDetails = async (userId: number) => {
     if (accessToken && role) {
-      await fetchPaymentById(id, accessToken, role);
+      await fetchPaymentById(userId, accessToken, role);
       setIsPaymentDialogOpen(true);
     }
   };
 
-  const handleViewInvoiceDetails = async (invoiceId: number) => {
-    if (accessToken) {
-      await fetchInvoiceById(invoiceId, accessToken);
-      setIsInvoiceDialogOpen(true);
-    }
-  };
+  console.log("selectedPayment :: ", selectedPayment);
 
   const handleClosePaymentDialog = () => {
     setIsPaymentDialogOpen(false);
     clearSelectedPayment();
   };
 
-  const handleCloseInvoiceDialog = () => {
-    setIsInvoiceDialogOpen(false);
-    clearSelectedInvoice();
-  };
-
-  // Payment handlers
   const handleAddPayment = async (payment: {
     user: string;
     amount: string;
@@ -223,7 +151,19 @@ export default function Billing() {
     }
   };
 
-  // Invoice payment handlers
+  // Invoice handlers
+  const handleViewInvoiceDetails = async (invoiceId: number) => {
+    if (accessToken) {
+      await fetchInvoiceById(invoiceId, accessToken);
+      setIsInvoiceDialogOpen(true);
+    }
+  };
+
+  const handleCloseInvoiceDialog = () => {
+    setIsInvoiceDialogOpen(false);
+    clearSelectedInvoice();
+  };
+
   const handleAddInvoicePayment = async (payment: {
     amount: string;
     transaction_id: string;
@@ -254,7 +194,6 @@ export default function Billing() {
     setIsAddInvoicePaymentDialogOpen(true);
   };
 
-  // Update invoice handlers
   const handleUpdateInvoice = async (invoiceData: {
     total_amount: string;
     due_date: string;
@@ -283,7 +222,6 @@ export default function Billing() {
     setIsUpdateInvoiceDialogOpen(true);
   };
 
-  // invoice handlers
   const handleCreateInvoice = async (invoiceData: {
     user: number;
     subscription: number;
@@ -327,6 +265,7 @@ export default function Billing() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">
@@ -417,274 +356,24 @@ export default function Billing() {
         </Card>
       </div>
 
-      {/* Payments Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {role === "business" ? "My Payments" : "Customer Payments"}
-          </CardTitle>
-          <CardDescription>
-            {role === "business"
-              ? "View your payment history"
-              : "View and manage customer payment records"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {role !== "business" && <TableHead>Customer</TableHead>}
-                <TableHead>Plan</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Payment Date</TableHead>
-                <TableHead>Payment Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedPayments.map((payment) => (
-                <TableRow key={payment.id}>
-                  {role !== "business" && (
-                    <TableCell className="font-medium">
-                      <div>{payment.user_name || "N/A"}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {payment.user_email || "N/A"}
-                      </div>
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    {payment.subscription_details?.plan_name || "N/A"}
-                    <div className="text-sm text-muted-foreground">
-                      {payment.subscription_details?.payment_frequency || "N/A"}
-                    </div>
-                  </TableCell>
-                  <TableCell>${payment.amount || "0.00"}</TableCell>
-                  <TableCell>
-                    {payment.payment_date
-                      ? new Date(payment.payment_date).toLocaleDateString()
-                      : "N/A"}
-                  </TableCell>
-                  <TableCell>
-                    {role === "super_admin" ? (
-                      <Select
-                        value={payment.payment_status}
-                        onValueChange={(value) =>
-                          handleStatusChange(payment.id, value)
-                        }
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="cancelled">Cancelled</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Badge
-                        variant={
-                          payment.payment_status === "completed"
-                            ? "default"
-                            : payment.payment_status === "pending"
-                            ? "secondary"
-                            : "destructive"
-                        }
-                        className={
-                          payment.payment_status === "completed"
-                            ? "bg-green-500"
-                            : payment.payment_status === "pending"
-                            ? "bg-yellow-500"
-                            : "bg-red-500"
-                        }
-                      >
-                        {payment.payment_status
-                          ? payment.payment_status.charAt(0).toUpperCase() +
-                            payment.payment_status.slice(1)
-                          : "N/A"}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleViewPaymentDetails(payment.user)}
-                    >
-                      <FileText className="h-4 w-4" />
-                      Details
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {payments.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={role === "business" ? 6 : 7}
-                    className="text-center text-muted-foreground"
-                  >
-                    No payment records found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+      {/* Customer Payments Component */}
+      <CustomerPayments
+        payments={payments}
+        subscriptionPayments={subscriptionPayments}
+        offsetPayments={offsetPayments}
+        role={role}
+        onStatusChange={handleStatusChange}
+        onViewDetails={handleViewPaymentDetails}
+      />
 
-          {/* Payments Pagination */}
-          {payments.length > 0 && (
-            <Pagination
-              currentPage={paymentsCurrentPage}
-              totalPages={totalPaymentsPages}
-              onPageChange={goToPaymentsPage}
-              onItemsPerPageChange={handlePaymentsItemsPerPageChange}
-              itemsPerPage={paymentsItemsPerPage}
-              totalItems={totalPaymentsCount}
-              startIndex={paymentsStartIndex}
-              endIndex={paymentsEndIndex}
-              showItemsPerPage={true}
-            />
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Invoices Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Invoices</CardTitle>
-          <CardDescription>
-            {role === "business"
-              ? "View your invoices"
-              : "View and manage invoices for all customers"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice #</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Total Amount</TableHead>
-                <TableHead>Paid</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paginatedInvoices.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-mono">
-                    {invoice.invoice_number}
-                  </TableCell>
-                  <TableCell>
-                    <div>{invoice.user_email}</div>
-                    <div className="text-sm text-muted-foreground">
-                      User ID: {invoice.user}
-                    </div>
-                  </TableCell>
-                  <TableCell>{invoice.subscription_plan}</TableCell>
-                  <TableCell>${invoice.total_amount}</TableCell>
-                  <TableCell>
-                    ${invoice.paid_amount} (
-                    {invoice.payment_percentage.toFixed(0)}%)
-                  </TableCell>
-                  <TableCell>
-                    {new Date(invoice.due_date).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        invoice.is_fully_paid
-                          ? "default"
-                          : invoice.status === "partial"
-                          ? "secondary"
-                          : "destructive"
-                      }
-                      className={
-                        invoice.is_fully_paid
-                          ? "bg-green-500"
-                          : invoice.status === "partial"
-                          ? "bg-yellow-500"
-                          : "bg-red-500"
-                      }
-                    >
-                      {invoice.is_fully_paid ? (
-                        <span className="flex items-center gap-1">
-                          <CheckCircle className="w-4 h-4" /> Paid
-                        </span>
-                      ) : invoice.status === "partial" ? (
-                        <span className="flex items-center gap-1">
-                          <FileText className="w-4 h-4" /> Partial
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1">
-                          <XCircle className="w-4 h-4" /> Unpaid
-                        </span>
-                      )}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleViewInvoiceDetails(invoice.id)}
-                    >
-                      <FileText className="h-4 w-4" />
-                      Details
-                    </Button>
-                    {role === "super_admin" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenUpdateInvoice(invoice)}
-                      >
-                        <Edit className="h-4 w-4" />
-                        Update
-                      </Button>
-                    )}
-                    {!invoice.is_fully_paid && role === "super_admin" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenAddInvoicePayment(invoice)}
-                      >
-                        <CreditCard className="h-4 w-4" />
-                        Add Payment
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {invoices.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={8}
-                    className="text-center text-muted-foreground"
-                  >
-                    No invoices found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-
-          {/* Invoices Pagination */}
-          {invoices.length > 0 && (
-            <Pagination
-              currentPage={invoicesCurrentPage}
-              totalPages={totalInvoicesPages}
-              onPageChange={goToInvoicesPage}
-              onItemsPerPageChange={handleInvoicesItemsPerPageChange}
-              itemsPerPage={invoicesItemsPerPage}
-              totalItems={totalInvoicesCount}
-              startIndex={invoicesStartIndex}
-              endIndex={invoicesEndIndex}
-              showItemsPerPage={true}
-            />
-          )}
-        </CardContent>
-      </Card>
+      {/* Invoices Component */}
+      <InvoicesComponent
+        invoices={invoices}
+        role={role}
+        onViewDetails={handleViewInvoiceDetails}
+        onOpenUpdateInvoice={handleOpenUpdateInvoice}
+        onOpenAddInvoicePayment={handleOpenAddInvoicePayment}
+      />
 
       {/* Dialog Components */}
       <PaymentDetailsDialog

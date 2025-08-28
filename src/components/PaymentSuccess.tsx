@@ -60,7 +60,9 @@ export default function PaymentSuccess() {
       try {
         clearError();
         console.log("Verifying payment for sessionId:", sessionId);
-        const verificationPaymentResponse = await verifyPaymentCompletion(sessionId);
+        const verificationPaymentResponse = await verifyPaymentCompletion(
+          sessionId
+        );
         console.log("Verification Response:", verificationPaymentResponse);
 
         await fetchMySubscription(accessToken);
@@ -69,7 +71,6 @@ export default function PaymentSuccess() {
           verificationPaymentResponse?.message ||
             "Payment verified successfully!"
         );
-
       } catch (err) {
         console.error("Payment verification failed:", err);
         toast.error("Failed to verify payment. Please contact support.");
@@ -105,7 +106,8 @@ export default function PaymentSuccess() {
                     Processing Transaction
                   </h2>
                   <p className="text-sm text-gray-600">
-                    Confirming your subscription details with our payment provider...
+                    Confirming your subscription details with our payment
+                    provider...
                   </p>
                 </div>
               </div>
@@ -143,7 +145,8 @@ export default function PaymentSuccess() {
 
               <div className="space-y-3">
                 <p className="text-sm text-gray-600">
-                  This doesn't necessarily mean your payment failed. Sometimes verification takes a few extra moments.
+                  This doesn't necessarily mean your payment failed. Sometimes
+                  verification takes a few extra moments.
                 </p>
                 <ul className="text-sm text-gray-600 space-y-1 ml-4">
                   <li>• Check your email for payment confirmation</li>
@@ -197,7 +200,8 @@ export default function PaymentSuccess() {
                 <Alert className="border-green-200 bg-green-50">
                   <CheckCircle className="h-4 w-4 text-green-600" />
                   <AlertDescription className="text-green-800">
-                    {paymentVerification.message} No further action is required and your subscription remains active.
+                    {paymentVerification.message} No further action is required
+                    and your subscription remains active.
                   </AlertDescription>
                 </Alert>
 
@@ -265,7 +269,7 @@ export default function PaymentSuccess() {
               <Link to="/" className="flex-1">
                 <Button variant="outline" className="w-full" size="lg">
                   <Home className="w-4 h-4 mr-2" />
-                  Return to Homepage
+                  Return to Dashboard
                 </Button>
               </Link>
             </div>

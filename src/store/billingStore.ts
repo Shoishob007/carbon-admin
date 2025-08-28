@@ -36,10 +36,19 @@ interface PaymentDetailsResponse {
 
 interface BillingState {
   payments: Payment[];
+  subscriptionPayments: Payment[];
+  offsetPayments: Payment[];
+
   loading: boolean;
   error: string | null;
   selectedPayment: PaymentDetailsResponse | null;
   fetchPayments: (accessToken: string, role: string) => Promise<void>;
+  fetchSubscriptionPayments: (
+    accessToken: string,
+    role: string
+  ) => Promise<void>;
+  fetchOffsetPayments: (accessToken: string, role: string) => Promise<void>;
+
   fetchPaymentById: (
     id: number,
     accessToken: string,
@@ -64,6 +73,8 @@ export const useBillingStore = create<BillingState>()(
   persist(
     (set) => ({
       payments: [],
+      subscriptionPayments: [],
+      offsetPayments: [],
       loading: false,
       error: null,
       selectedPayment: null,
@@ -96,6 +107,86 @@ export const useBillingStore = create<BillingState>()(
 
           const data = await response.json();
           set({ payments: data.payments || [] });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to fetch payments",
+          });
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      fetchSubscriptionPayments: async (accessToken: string, role: string) => {
+        set({ loading: true, error: null });
+        try {
+          let url;
+          if (role === "business") {
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/my-payments/`;
+          } else {
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/admin/payments/?payment_type=subscription`;
+          }
+
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch payments");
+          }
+
+          const data = await response.json();
+          set({ subscriptionPayments: data.payments || [] });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to fetch payments",
+          });
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      fetchOffsetPayments: async (accessToken: string, role: string) => {
+        set({ loading: true, error: null });
+        try {
+          let url;
+          if (role === "business") {
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/my-payments/`;
+          } else {
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/admin/payments/?payment_type=carbon_offset`;
+          }
+
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch payments");
+          }
+
+          const data = await response.json();
+          set({ offsetPayments: data.payments || [] });
         } catch (error) {
           set({
             error:

@@ -33,6 +33,7 @@ import {
 import { useBillingStore } from "@/store/billingStore";
 import { useMySubscriptionStore } from "@/store/mySubscription";
 import { useEffect } from "react";
+import { useOffsetStore } from "@/store/offsetStore";
 
 const emissionData = [
   { month: "Jan", emissions: 2400, offset: 2000 },
@@ -57,13 +58,17 @@ export default function BusinessDashboard() {
   const { accessToken } = useAuthStore();
   const { payments } = useBillingStore();
   const { subscription } = useMySubscriptionStore();
+  const { myOffsets, fetchMyOffsets } = useOffsetStore();
 
-  // Fetch user profile on component mount
+  // user profile on component mount
   useEffect(() => {
     if (accessToken && !user) {
       fetchUserProfile(accessToken);
     }
-  }, [accessToken, user, fetchUserProfile]);
+    if (accessToken) {
+      fetchMyOffsets(accessToken);
+    }
+  }, [accessToken, user, fetchUserProfile, fetchMyOffsets]);
 
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
@@ -236,7 +241,12 @@ export default function BusinessDashboard() {
             <Leaf className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">2.5 tons</div>
+            <div className="text-2xl font-bold text-green-600">
+              {myOffsets
+                .reduce((sum, offset) => sum + offset.total_tons, 0)
+                .toFixed(2)}{" "}
+              tons
+            </div>
             <div className="flex items-center text-xs text-muted-foreground">
               <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
               +10% from last month

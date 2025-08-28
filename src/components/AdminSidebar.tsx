@@ -46,7 +46,7 @@ type MenuItemBase = {
 
 type MenuItemWithSubItems = MenuItemBase & {
   hasSubItems: true;
-  subItems?: Array<{ title: string; url: string }>;
+  subItems?: Array<{ title: string; url: string; roles?: string[] }>;
 };
 
 type MenuItemWithoutSubItems = MenuItemBase & {
@@ -119,14 +119,14 @@ const baseMenuItems: MenuItem[] = [
     roles: ["super_admin"],
     hasSubItems: false,
   },
-    {
+  {
     title: "Offset History",
     url: "/offset-history",
     icon: Globe,
     roles: ["super_admin"],
     hasSubItems: false,
   },
-    {
+  {
     title: "My Offset Projects",
     url: "/myOffsetProjects",
     icon: Globe,
@@ -148,18 +148,34 @@ export function AdminSidebar() {
   const location = useLocation();
   const [openItems, setOpenItems] = useState<string[]>([]);
 
-  // subscription sub-items based on role
+  // Get subscription sub-items based on role
   const getSubscriptionItems = (role: string) => {
-    if (role === "business") {
-      return [
-        { title: "Pricing", url: "/subscriptions/pricing" },
-        { title: "My Plans", url: "/subscriptions/my-subscription" },
-      ];
+    const items = [];
+
+    if (role === "super_admin") {
+      items.push({
+        title: "All Plans",
+        url: "/subscriptions",
+        roles: ["super_admin"],
+      });
     }
-    return [
-      { title: "All Plans", url: "/subscriptions" },
-      { title: "Pricing", url: "/subscriptions/pricing" },
-    ];
+
+    if (role === "business" || role === "individual") {
+      items.push(
+        {
+          title: "Pricing",
+          url: "/subscriptions/pricing",
+          roles: ["business", "individual"],
+        },
+        {
+          title: "My Plans",
+          url: "/subscriptions/my-subscription",
+          roles: ["business", "individual"],
+        }
+      );
+    }
+
+    return items;
   };
 
   const toggleItem = (title: string) => {
@@ -174,7 +190,7 @@ export function AdminSidebar() {
     return location.pathname === url || location.pathname.startsWith(url + "/");
   };
 
-  // menu items with dynamic sub-items
+  // Process menu items with dynamic sub-items
   const processedMenuItems = baseMenuItems.map((item) => {
     if (item.title === "Subscriptions" && item.hasSubItems && role) {
       return {
@@ -186,9 +202,9 @@ export function AdminSidebar() {
     return item;
   });
 
-  // items based on user role
+  // Filter items based on user role
   const filteredMenuItems = processedMenuItems.filter(
-    (item) => !item.roles || item.roles.includes(role)
+    (item) => role && item.roles.includes(role)
   );
 
   return (
@@ -230,54 +246,72 @@ export function AdminSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-2">
-              {filteredMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  {item.hasSubItems ? (
-                    <Collapsible
-                      open={openItems.includes(item.title)}
-                      onOpenChange={() => toggleItem(item.title)}
-                    >
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton
-                          className={cn(
-                            "w-full justify-between hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                            isActive(item.url) &&
-                              "bg-sidebar-accent text-sidebar-accent-foreground"
-                          )}
-                        >
-                          <div className="flex items-center space-x-3">
-                            <item.icon className="h-4 w-4" />
-                            <span>{item.title}</span>
-                          </div>
-                          {openItems.includes(item.title) ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub className="ml-6 mt-2 space-y-1">
-                          {(item.subItems ?? []).map((subItem) => (
-                            <SidebarMenuSubItem key={subItem.title}>
-                              <SidebarMenuSubButton asChild>
-                                <Link
-                                  to={subItem.url}
-                                  className={cn(
-                                    "text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                                    isActive(subItem.url) &&
-                                      "bg-sidebar-accent text-sidebar-accent-foreground"
-                                  )}
-                                >
-                                  {subItem.title}
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  ) : (
+              {filteredMenuItems.map((item) => {
+                // For items with sub-items, also filter sub-items by role
+                if (item.hasSubItems && item.subItems) {
+                  const filteredSubItems = item.subItems.filter(
+                    (subItem) =>
+                      !subItem.roles || (role && subItem.roles.includes(role))
+                  );
+
+                  // Don't show the parent item if it has no visible sub-items
+                  if (filteredSubItems.length === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <Collapsible
+                        open={openItems.includes(item.title)}
+                        onOpenChange={() => toggleItem(item.title)}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton
+                            className={cn(
+                              "w-full justify-between hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                              isActive(item.url) &&
+                                "bg-sidebar-accent text-sidebar-accent-foreground"
+                            )}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.title}</span>
+                            </div>
+                            {openItems.includes(item.title) ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub className="ml-6 mt-2 space-y-1">
+                            {filteredSubItems.map((subItem) => (
+                              <SidebarMenuSubItem key={subItem.title}>
+                                <SidebarMenuSubButton asChild>
+                                  <Link
+                                    to={subItem.url}
+                                    className={cn(
+                                      "text-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                                      isActive(subItem.url) &&
+                                        "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    )}
+                                  >
+                                    {subItem.title}
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </SidebarMenuItem>
+                  );
+                }
+
+                // Regular menu items without sub-items
+                return (
+                  <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
                       <Link
                         to={item.url}
@@ -291,9 +325,9 @@ export function AdminSidebar() {
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
-                  )}
-                </SidebarMenuItem>
-              ))}
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

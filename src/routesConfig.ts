@@ -9,7 +9,7 @@ import Faqs from "./pages/Faq";
 import Billing from "./pages/Billing";
 import Queries from "./pages/Queries";
 import OffsetProjects from "./pages/Offset-Projects";
-import MyOffsetProjects from "./pages/MyOffsetProjects"
+import MyOffsetProjects from "./pages/MyOffsetProjects";
 import { Login } from "./pages/Login";
 import Register from "./pages/Register";
 import MySubscription from "./pages/mySubscriptions";
@@ -50,7 +50,7 @@ export const routes: AppRoute[] = [
     layout: "dashboard",
     roles: ["super_admin"],
   },
-    {
+  {
     path: "/blogs/:id",
     component: BlogDetails,
     layout: "dashboard",
@@ -66,27 +66,27 @@ export const routes: AppRoute[] = [
     path: "/subscriptions",
     component: Subscriptions,
     layout: "dashboard",
-    roles: ["super_admin", "business"],
+    roles: ["super_admin", "business", "individual"],
   },
   {
     path: "/subscriptions/my-subscription",
     component: MySubscription,
     layout: "dashboard",
-    roles: ["business"],
+    roles: ["business", "individual"],
   },
   {
     path: "/subscriptions/pricing",
     component: Pricing,
     layout: "dashboard",
-    roles: ["super_admin", "business"],
+    roles: ["business", "individual"],
   },
-    {
+  {
     path: "/subscriptions/payment/success",
     component: PaymentSuccess,
     layout: "dashboard",
     roles: ["business", "individual"],
   },
-      {
+  {
     path: "/subscriptions/payment/cancel",
     component: PaymentCancel,
     layout: "dashboard",
@@ -98,7 +98,7 @@ export const routes: AppRoute[] = [
     layout: "dashboard",
     roles: ["super_admin"],
   },
-    {
+  {
     path: "/contact",
     component: ContactPage,
     layout: "dashboard",
@@ -117,13 +117,13 @@ export const routes: AppRoute[] = [
     layout: "dashboard",
     roles: ["super_admin"],
   },
-    {
+  {
     path: "/offset-history",
     component: OffsetHistory,
     layout: "dashboard",
     roles: ["super_admin"],
   },
-    {
+  {
     path: "/myOffsetProjects",
     component: MyOffsetProjects,
     layout: "dashboard",
@@ -147,7 +147,7 @@ export const routes: AppRoute[] = [
     layout: "dashboard",
     roles: ["super_admin"],
   },
-    {
+  {
     path: "/terms",
     component: TermsAndConditions,
     layout: "dashboard",

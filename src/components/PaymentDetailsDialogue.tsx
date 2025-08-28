@@ -51,6 +51,7 @@ export default function PaymentDetailsDialog({
   loading,
   role,
 }: PaymentDetailsDialogProps) {
+  console.log("selectedPayment :: ", selectedPayment);
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[625px] max-h-[90vh] flex flex-col">
@@ -86,8 +87,7 @@ export default function PaymentDetailsDialog({
             )}
 
             {/* Payment Details */}
-            {selectedPayment.payments &&
-            selectedPayment.payments.length > 0 ? (
+            {selectedPayment.payments && selectedPayment.payments.length > 0 ? (
               <div className="space-y-4">
                 <div className="border-t pt-4">
                   <h4 className="text-lg font-semibold mb-3">
@@ -108,8 +108,8 @@ export default function PaymentDetailsDialog({
                             {payment.subscription_details?.plan_name || "N/A"}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {payment.subscription_details
-                              ?.payment_frequency || "N/A"}
+                            {payment.subscription_details?.payment_frequency ||
+                              "N/A"}
                           </p>
                         </div>
                         <div>
@@ -264,11 +264,7 @@ export default function PaymentDetailsDialog({
         )}
 
         <div className="pt-4 border-t">
-          <Button
-            variant="destructive"
-            onClick={onClose}
-            className="w-full"
-          >
+          <Button variant="destructive" onClick={onClose} className="w-full">
             Close
           </Button>
         </div>
