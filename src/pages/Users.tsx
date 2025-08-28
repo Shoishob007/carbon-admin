@@ -34,6 +34,7 @@ import {
   ChevronsLeft,
   ChevronLeft,
   Loader2,
+  Coins,
 } from "lucide-react";
 import {
   Dialog,
@@ -71,6 +72,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useOffsetStore } from "@/store/offsetStore";
 
 interface User {
   id: number;
@@ -142,6 +144,10 @@ export default function Users() {
       company_registration_number: "",
     }
   });
+    const {
+    offsetHistory,
+    fetchOffsetHistory,
+  } = useOffsetStore();
 
   // Delete user states
   const [isDeletingUser, setIsDeletingUser] = useState<number | null>(null);
@@ -149,6 +155,13 @@ export default function Users() {
   useEffect(() => {
     fetchUsers(accessToken);
   }, [accessToken, fetchUsers]);
+
+    // all history on mount
+  useEffect(() => {
+    if (accessToken) {
+      fetchOffsetHistory(accessToken);
+    }
+  }, [accessToken, fetchOffsetHistory]);
 
   // filtered users
   const filteredApiUsers = useMemo(() => {
@@ -200,8 +213,10 @@ export default function Users() {
     (sum, user) => sum + user.emissions,
     0
   );
-  const totalOffsets = mockUsers.reduce((sum, user) => sum + user.offsets, 0);
-
+  const totalTonnes = offsetHistory.reduce(
+    (sum, offset) => sum + offset.carbon_emission_metric_tons,
+    0
+  );
   const handleCreateUser = async () => {
     if (!newUser.email || !newUser.name || !newUser.password) {
       setCreateError("Please fill in all required fields");
@@ -712,7 +727,7 @@ export default function Users() {
       </Dialog>
 
       {/* Statistics Cards */}
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Users</CardTitle>
@@ -744,30 +759,15 @@ export default function Users() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Offsets</CardTitle>
-            <UserCheck className="h-4 w-4 text-green-600" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Offset By Users</CardTitle>
+            <Coins className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-700">
-              {totalOffsets.toLocaleString()}
+            <div className="text-2xl font-bold text-blue-700">
+              {totalTonnes.toFixed(2)}
             </div>
-            <p className="text-xs text-muted-foreground">Tons CO₂ offset</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Impact</CardTitle>
-            <Calendar className="h-4 w-4 text-carbon-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-carbon-700">
-              {(totalOffsets - totalEmissions).toLocaleString()}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Tons CO₂ net positive
-            </p>
+            <p className="text-xs text-muted-foreground">CO₂ tonnes offset</p>
           </CardContent>
         </Card>
       </div>

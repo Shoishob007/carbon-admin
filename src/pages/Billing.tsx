@@ -154,6 +154,7 @@ export default function Billing() {
       fetchInvoices(accessToken, role);
     }
   }, [accessToken, role, fetchPayments, fetchInvoices]);
+  console.log("Payments :: ", payments)
 
   const pendingPayments = payments.filter(
     (p) => p.payment_status === "pending"

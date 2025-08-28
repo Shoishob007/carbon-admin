@@ -74,7 +74,7 @@ export default function ProjectDetailsDialog({
             </div>
             <div>
               <span className="font-semibold text-lg">
-                Gold Standard Confirmation:
+                Standard Confirmation:
               </span>
               <div className="mt-1 text-base">
                 {project.gold_standard_confirmation || "N/A"}

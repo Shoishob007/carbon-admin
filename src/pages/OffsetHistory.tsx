@@ -176,7 +176,7 @@ export default function OffsetHistory() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Tonnes</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Offset In Tonnes</CardTitle>
             <Coins className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
@@ -236,12 +236,6 @@ export default function OffsetHistory() {
             {/* Right side */}
             <div className="flex flex-col sm:flex-row gap-4 items-end sm:items-center">
               <div className="flex-1 sm:w-64">
-                <Label
-                  htmlFor="email-search"
-                  className="flex items-center gap-2 mb-2 sm:mb-0"
-                >
-                  <Mail className="w-4 h-4 text-gray-500" /> Email
-                </Label>
                 <Input
                   id="email-search"
                   type="email"

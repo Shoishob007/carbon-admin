@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/auth";
 import { useMySubscriptionStore } from "@/store/mySubscription";
 import { usePublicSubscriptionStore } from "@/store/publicSubscriptions";
+import { useSubscriptionPaymentStore } from "@/store/subscriptionPayment";
 import { useUserProfile } from "@/hooks/use-profile";
 import {
   Card,
@@ -14,8 +15,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import {
   Loader2,
@@ -27,31 +26,16 @@ import {
   Crown,
   Calendar,
   CreditCard,
-  X,
   DollarSign,
-  ArrowLeft,
   AlertCircle,
-  CheckSquare,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ProfileCompletePopup } from "@/components/ProfileCompletePopup";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
+import PlanDialog from "@/components/PlanDialogue";
 
 export default function MySubscription() {
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -66,6 +50,13 @@ export default function MySubscription() {
   } = useMySubscriptionStore();
   const { activePlans, fetchPublicPlans } = usePublicSubscriptionStore();
   const {
+    createCheckoutSession,
+    redirectToCheckout,
+    loading: paymentLoading,
+    error: paymentError,
+    clearError: clearPaymentError,
+  } = useSubscriptionPaymentStore();
+  const {
     user,
     profile_update,
     loading: profileLoading,
@@ -73,18 +64,11 @@ export default function MySubscription() {
   } = useUserProfile();
 
   const [billing, setBilling] = useState("monthly");
-  const [selectedPlan, setSelectedPlan] = useState<
-    (typeof activePlans)[0] | null
-  >(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [hasNoSubscription, setHasNoSubscription] = useState(false);
-  const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null);
-
-  // Payment state
-  const [transactionId, setTransactionId] = useState("");
-  const [paymentProcessing, setPaymentProcessing] = useState(false);
-  const [showPaymentSection, setShowPaymentSection] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     if (!profile_update && !profileLoading) {
@@ -109,108 +93,85 @@ export default function MySubscription() {
     profile_update,
   ]);
 
+  console.log("Subscription fetched :: ", subscription);
+
   useEffect(() => {
     if (error && error !== "No subscription found") {
       toast.error(error);
     }
   }, [error]);
 
-  // nitial billing frequency
+  useEffect(() => {
+    if (paymentError) {
+      toast.error(paymentError);
+      clearPaymentError();
+    }
+  }, [paymentError, clearPaymentError]);
+
+  // Initial billing frequency
   useEffect(() => {
     if (isDialogOpen && subscription) {
       setBilling(subscription.payment_frequency);
     }
   }, [isDialogOpen, subscription]);
 
-  const handleSubscriptionAction = async (planId: number) => {
+  const handleStripeCheckout = async (planId) => {
     if (!accessToken) {
       toast.error("You must be logged in to subscribe.");
       return;
     }
 
     try {
-      setIsUpdating(true);
+      setProcessingPayment(true);
+      clearPaymentError();
 
+      // Create or update subscription first
       if (hasNoSubscription) {
-        // new subscription
         await createSubscription(accessToken, {
           plan_id: planId,
           payment_frequency: billing,
         });
-        toast.success(
-          "Subscription created successfully! Please complete your payment."
-        );
         setHasNoSubscription(false);
       } else if (subscription) {
-        // updating existing subscription
         await updateMySubscription(accessToken, {
           plan_id: planId,
           payment_frequency: billing,
         });
-        toast.success(
-          "Subscription updated successfully! Please complete your payment if needed."
-        );
       }
 
-      await fetchMySubscription(accessToken);
+      // Create checkout session
+      const checkoutData = await createCheckoutSession(
+        accessToken,
+        planId,
+        billing as "monthly" | "yearly"
+      );
+
+      // Redirect to checkout
+      if (checkoutData.url) {
+        toast.success("Redirecting to secure payment...");
+        setTimeout(() => {
+          redirectToCheckout(checkoutData.url);
+        }, 1000);
+      }
+
       setIsDialogOpen(false);
-      setShowPaymentSection(true);
     } catch (error) {
+      console.error("Stripe checkout failed:", error);
       toast.error(
         error instanceof Error
           ? error.message
-          : "Failed to process subscription"
+          : "Failed to initiate payment. Please try again."
       );
     } finally {
-      setIsUpdating(false);
+      setProcessingPayment(false);
     }
   };
 
-  const handlePaymentSubmission = async () => {
-    if (!transactionId || !accessToken || !subscription) return;
-
-    setPaymentProcessing(true);
-
-    try {
-      const price =
-        billing === "yearly"
-          ? Math.round(subscription.plan_details.yearly_price * 0.9 * 100) / 100
-          : subscription.plan_details.monthly_price;
-
-      const paymentResponse = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/subscription/my-payments/create/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            amount: Number(price.toFixed(2)),
-            transaction_id: transactionId,
-          }),
-        }
-      );
-
-      if (!paymentResponse.ok) {
-        throw new Error("Payment verification failed");
-      }
-
-      toast.success("Payment submitted successfully!");
-      setTransactionId("");
-      setShowPaymentSection(false);
-      await fetchMySubscription(accessToken);
-    } catch (error) {
-      console.error("Payment processing failed:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Payment verification failed"
-      );
-    } finally {
-      setPaymentProcessing(false);
-    }
+  const handleSubscriptionAction = async (planId) => {
+    await handleStripeCheckout(planId);
   };
 
-  const openPlanDialog = (plan: (typeof activePlans)[0]) => {
+  const openPlanDialog = (plan) => {
     setSelectedPlan(plan);
     if (subscription) {
       setBilling(subscription.payment_frequency);
@@ -220,21 +181,7 @@ export default function MySubscription() {
 
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
-    setTransactionId("");
   };
-
-  // if user is changing frequency or plan
-  const isFrequencyChange =
-    selectedPlan &&
-    subscription &&
-    selectedPlan.id === subscription.plan &&
-    billing !== subscription.payment_frequency;
-
-  const isPlanChange =
-    selectedPlan && subscription && selectedPlan.id !== subscription.plan;
-
-  const shouldEnableButton =
-    hasNoSubscription || isFrequencyChange || isPlanChange;
 
   const handleUnsubscribe = async () => {
     if (!accessToken) {
@@ -252,7 +199,6 @@ export default function MySubscription() {
       toast.success("Successfully unsubscribed");
       setIsDialogOpen(false);
       setHasNoSubscription(true);
-      setShowPaymentSection(false);
     } catch (error) {
       console.error("Unsubscribe failed:", error);
       toast.error(
@@ -375,13 +321,13 @@ export default function MySubscription() {
         </div>
       </div>
 
-      {/* Payment Alert */}
-      {!hasNoSubscription && subscription && showPaymentSection && (
-        <Alert className="border-orange-200 bg-orange-50">
-          <AlertCircle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="text-orange-800">
-            Complete your payment to ensure uninterrupted service. Your
-            subscription is active but payment confirmation is pending.
+      {/* Processing Payment Alert */}
+      {processingPayment && (
+        <Alert className="border-blue-200 bg-blue-50">
+          <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+          <AlertDescription className="text-blue-800">
+            Setting up secure payment... You'll be redirected to Stripe checkout
+            shortly.
           </AlertDescription>
         </Alert>
       )}
@@ -567,91 +513,6 @@ export default function MySubscription() {
                   </div>
                 </div>
               </div>
-
-              {/* Payment Section */}
-              {showPaymentSection && (
-                <div className="border-t pt-6">
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <CreditCard className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">
-                          Complete Your Payment
-                        </h3>
-                        <p className="text-sm text-slate-600">
-                          Your subscription is active. Please submit your
-                          payment to avoid any service interruption.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <Label
-                          htmlFor="payment-amount"
-                          className="text-sm font-medium"
-                        >
-                          Amount Due
-                        </Label>
-                        <Input
-                          id="payment-amount"
-                          type="text"
-                          value={`$${currentPrice.toFixed(2)}`}
-                          readOnly
-                          className="mt-1 bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <Label
-                          htmlFor="payment-transaction-id"
-                          className="text-sm font-medium"
-                        >
-                          Transaction ID
-                        </Label>
-                        <Input
-                          id="payment-transaction-id"
-                          type="text"
-                          value={transactionId}
-                          onChange={(e) => setTransactionId(e.target.value)}
-                          placeholder="Enter payment transaction ID"
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <Button
-                        onClick={handlePaymentSubmission}
-                        disabled={!transactionId || paymentProcessing}
-                        className="flex-1"
-                      >
-                        {paymentProcessing ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                            Processing Payment...
-                          </>
-                        ) : (
-                          <>
-                            <CheckSquare className="w-4 h-4 mr-2" />
-                            Submit Payment
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowPaymentSection(false)}
-                        disabled={paymentProcessing}
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Hide
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </CardContent>
@@ -668,16 +529,6 @@ export default function MySubscription() {
                 : "Upgrade or change your current plan"}
             </p>
           </div>
-          {!hasNoSubscription && !showPaymentSection && (
-            <Button
-              variant="outline"
-              onClick={() => setShowPaymentSection(true)}
-              className="text-sm"
-            >
-              <CreditCard className="w-4 h-4 mr-2" />
-              Make Payment
-            </Button>
-          )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -759,8 +610,21 @@ export default function MySubscription() {
                     variant={isCurrentPlan ? "outline" : "default"}
                     size="sm"
                     className="w-full"
+                    disabled={processingPayment}
                   >
-                    {isCurrentPlan ? "Manage Plan" : "View Details"}
+                    {processingPayment ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : isCurrentPlan ? (
+                      "Plan Details"
+                    ) : (
+                      <>
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Subscribe
+                      </>
+                    )}
                   </Button>
                 </CardContent>
               </Card>
@@ -770,195 +634,18 @@ export default function MySubscription() {
       </div>
 
       {/* Plan Details Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={handleCloseDialog}>
-        <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto p-6">
-          {selectedPlan && (
-            <>
-              <DialogHeader className="space-y-3">
-                <DialogTitle className="text-2xl font-semibold">
-                  {selectedPlan.name}
-                </DialogTitle>
-                <DialogDescription className="text-sm">
-                  {selectedPlan.description}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-6">
-                {/* Pricing Section */}
-                <div className="bg-muted/30 p-4 rounded-lg space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium">Billing Frequency</h4>
-                      <Select
-                        value={billing}
-                        onValueChange={(value) =>
-                          setBilling(value as "monthly" | "yearly")
-                        }
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Select billing cycle" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="monthly">Monthly</SelectItem>
-                          <SelectItem value="yearly">
-                            Yearly (Save 10%)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="text-right space-y-1">
-                      <div className="text-2xl font-bold">
-                        $
-                        {billing === "monthly"
-                          ? selectedPlan.monthly_price.toFixed(2)
-                          : (selectedPlan.yearly_price * 0.9).toFixed(2)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        per {billing === "monthly" ? "month" : "year"}
-                      </div>
-                      {billing === "yearly" && (
-                        <Badge
-                          variant="secondary"
-                          className="text-xs bg-green-100 text-green-700"
-                        >
-                          Original Price $
-                          {(selectedPlan.yearly_price * 0.1 * 10).toFixed(0)}
-                          /year
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Features Grid */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-1 h-4 bg-primary rounded-full"></div>
-                    Plan Features
-                  </h4>
-                  <div className="grid gap-2 max-h-32 overflow-y-auto">
-                    {selectedPlan.features.map((feature, i) => (
-                      <div
-                        key={i}
-                        className="flex items-start gap-3 px-2 py-1.5 hover:bg-muted/30 rounded-lg transition-colors"
-                      >
-                        <CheckCircle className="h-4 w-4 mt-0.5 text-green-500 flex-shrink-0" />
-                        <span className="text-sm">{feature}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Resource Limits */}
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium flex items-center gap-2">
-                    <div className="w-1 h-4 bg-primary rounded-full"></div>
-                    Resource Limits
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      {
-                        icon: Users,
-                        label: "Max Users",
-                        value: selectedPlan.max_users,
-                      },
-                      {
-                        icon: FileText,
-                        label: "Max Guides",
-                        value: selectedPlan.max_guides,
-                      },
-                      {
-                        icon: Database,
-                        label: "Max Tokens",
-                        value: selectedPlan.max_tokens.toLocaleString(),
-                      },
-                      {
-                        icon: Zap,
-                        label: "API Requests",
-                        value:
-                          selectedPlan.total_requests_limit?.toLocaleString() ||
-                          "Unlimited",
-                      },
-                    ].map((item, i) => (
-                      <div key={i} className="border rounded-lg p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <item.icon className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-xs font-medium text-muted-foreground">
-                            {item.label}
-                          </span>
-                        </div>
-                        <div className="text-lg font-semibold">
-                          {item.value}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="pt-2 flex gap-3">
-                  <Button
-                    onClick={() => handleSubscriptionAction(selectedPlan.id)}
-                    disabled={!shouldEnableButton || isUpdating}
-                    className="w-full"
-                    size="lg"
-                  >
-                    {isUpdating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Processing...
-                      </>
-                    ) : hasNoSubscription ? (
-                      <>
-                        <Crown className="h-4 w-4 mr-2" />
-                        Subscribe Now
-                      </>
-                    ) : isFrequencyChange ? (
-                      <>
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Update Billing Frequency
-                      </>
-                    ) : selectedPlan.id === subscription?.plan ? (
-                      "Current Plan"
-                    ) : selectedPlan.monthly_price >
-                      (subscription?.plan_details.monthly_price || 0) ? (
-                      <>
-                        <Crown className="h-4 w-4 mr-2" />
-                        Upgrade Plan
-                      </>
-                    ) : (
-                      "Change Plan"
-                    )}
-                  </Button>
-
-                  {/* Unsubscribe Button */}
-                  {selectedPlan.id === subscription?.plan && (
-                    <Button
-                      onClick={handleUnsubscribe}
-                      disabled={isUpdating}
-                      className="w-full"
-                      size="lg"
-                      variant="destructive"
-                    >
-                      {isUpdating ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <X className="h-4 w-4 mr-2" />
-                          Unsubscribe
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <PlanDialog
+        open={isDialogOpen}
+        onOpenChange={handleCloseDialog}
+        selectedPlan={selectedPlan}
+        subscription={subscription}
+        billing={billing}
+        setBilling={setBilling}
+        isUpdating={isUpdating || processingPayment || paymentLoading}
+        hasNoSubscription={hasNoSubscription}
+        onSubscribe={handleSubscriptionAction}
+        onUnsubscribe={handleUnsubscribe}
+      />
     </div>
   );
 }

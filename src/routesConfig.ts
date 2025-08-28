@@ -20,6 +20,8 @@ import ContactPage from "./pages/ContactPage";
 import TermsAndConditions from "./pages/Terms";
 import DashboardPage from "./app/(dashboard)/dashboard/page";
 import OffsetHistory from "./pages/OffsetHistory";
+import PaymentSuccess from "./components/PaymentSuccess";
+import PaymentCancel from "./components/PaymentCancel";
 
 // route objects
 export interface AppRoute {
@@ -77,6 +79,18 @@ export const routes: AppRoute[] = [
     component: Pricing,
     layout: "dashboard",
     roles: ["super_admin", "business"],
+  },
+    {
+    path: "/subscriptions/payment/success",
+    component: PaymentSuccess,
+    layout: "dashboard",
+    roles: ["business", "individual"],
+  },
+      {
+    path: "/subscriptions/payment/cancel",
+    component: PaymentCancel,
+    layout: "dashboard",
+    roles: ["business", "individual"],
   },
   {
     path: "/users",

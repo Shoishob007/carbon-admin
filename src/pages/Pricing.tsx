@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePublicSubscriptionStore } from "@/store/publicSubscriptions";
 import { useMySubscriptionStore } from "@/store/mySubscription";
 import { useAuthStore } from "@/store/auth";
+import { useSubscriptionPaymentStore } from "@/store/subscriptionPayment";
 import { useUserProfile } from "@/hooks/use-profile";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import {
   Zap,
   Star,
   FileQuestion,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -21,10 +23,10 @@ import { useNavigate } from "react-router-dom";
 
 // icons
 const planIcons = [
-  <Star key="basic" className="w-10 h-10 text-blue-500" />,
-  <Crown key="popular" className="w-10 h-10 text-amber-500" />,
-  <Zap key="premium" className="w-10 h-10 text-purple-500" />,
-  <FileQuestion key="premium" className="w-10 h-10 text-purple-500" />,
+  <Star key="basic" className="w-8 h-8 text-blue-500" />,
+  <Crown key="popular" className="w-8 h-8 text-amber-500" />,
+  <Zap key="premium" className="w-8 h-8 text-purple-500" />,
+  <FileQuestion key="premium" className="w-8 h-8 text-purple-500" />,
 ];
 
 function ProfileCompletePopup() {
@@ -67,6 +69,14 @@ export default function Pricing() {
     unsubscribeFromPlan,
   } = useMySubscriptionStore();
 
+  const {
+    createCheckoutSession,
+    redirectToCheckout,
+    loading: paymentLoading,
+    error: paymentError,
+    clearError: clearPaymentError,
+  } = useSubscriptionPaymentStore();
+
   const accessToken = useAuthStore((state) => state.accessToken);
   const {
     profile_update,
@@ -80,6 +90,7 @@ export default function Pricing() {
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null);
   const [hasNoSubscription, setHasNoSubscription] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     if (!profile_update && !profileLoading) {
@@ -105,6 +116,13 @@ export default function Pricing() {
     profileLoading,
   ]);
 
+  useEffect(() => {
+    if (paymentError) {
+      toast.error(paymentError);
+      clearPaymentError();
+    }
+  }, [paymentError, clearPaymentError]);
+
   const currentPlanId = subscription?.plan_details.id ?? null;
   const currentPlanPrice = subscription
     ? billing === "yearly"
@@ -116,7 +134,7 @@ export default function Pricing() {
     (a, b) => a.monthly_price - b.monthly_price
   );
 
-  const handleInitialSubscription = async (planId: number) => {
+  const handleStripeCheckout = async (planId: number) => {
     if (!accessToken) {
       toast.error("You must be logged in to subscribe.");
       return;
@@ -127,62 +145,30 @@ export default function Pricing() {
     }
 
     try {
-      setUpdatingPlanId(planId);
-      await createSubscription(accessToken, {
-        plan_id: planId,
-        payment_frequency: billing,
-      });
-      toast.success(
-        "Subscription created successfully! Please complete your payment in the subscription management page."
+      setProcessingPayment(true);
+      clearPaymentError();
+
+      // Create Stripe checkout session
+      const checkoutData = await createCheckoutSession(
+        accessToken,
+        planId,
+        billing
       );
-      setHasNoSubscription(false);
-      await fetchMySubscription(accessToken);
 
-      // naviagting
-      setTimeout(() => {
-        navigate("/subscriptions/my-subscription");
-      }, 1500);
+      // Redirect to Stripe checkout
+      if (checkoutData.url) {
+        redirectToCheckout(checkoutData.url);
+        toast.success("Redirecting to secure payment...");
+      }
     } catch (error) {
-      console.error("Subscription creation failed:", error);
-      toast.error("Failed to create subscription");
-    } finally {
-      setUpdatingPlanId(null);
-    }
-  };
-
-  const handlePlanChange = async (planId: number) => {
-    if (!accessToken) {
-      toast.error("You must be logged in to change plans.");
-      return;
-    }
-    if (!subscription) {
-      toast.error("Current subscription is not loaded.");
-      return;
-    }
-    if (planId === currentPlanId) {
-      toast("You are already subscribed to this plan.");
-      return;
-    }
-
-    try {
-      setUpdatingPlanId(planId);
-      await updateMySubscription(accessToken, {
-        plan_id: planId,
-        payment_frequency: billing,
-      });
-      toast.success(
-        "Subscription plan updated successfully! Please complete your payment in the subscription management page."
+      console.error("Stripe checkout failed:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to initiate payment. Please try again."
       );
-      await fetchMySubscription(accessToken);
-
-      // navigating
-      setTimeout(() => {
-        navigate("/subscriptions/my-subscription");
-      }, 1500);
-    } catch (error) {
-      console.error("Plan change failed:", error);
-      toast.error("Failed to change plan");
     } finally {
+      setProcessingPayment(false);
       setUpdatingPlanId(null);
     }
   };
@@ -269,7 +255,7 @@ export default function Pricing() {
 
   return (
     <div className="">
-      <div className="container mx-auto py-8 px-6">
+      <div className="container mx-auto py-8 px-4 sm:px-6">
         {/* Hero Section */}
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold mb-4 bg-gradient-to-r from-slate-900 via-slate-700 to-slate-900 bg-clip-text text-transparent">
@@ -282,14 +268,14 @@ export default function Pricing() {
         </div>
 
         {/* Billing Toggle */}
-        <div className="flex justify-center mb-20">
+        <div className="flex justify-center mb-12 md:mb-20">
           <div className="relative bg-white p-1.5 rounded-xl shadow-lg border border-slate-200/60 backdrop-blur-sm">
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 aria-pressed={billing === "monthly"}
                 className={cn(
-                  "relative px-8 py-3 rounded-xl transition-all duration-300 font-semibold text-sm tracking-wide",
+                  "relative px-6 py-2.5 md:px-8 md:py-3 rounded-xl transition-all duration-300 font-semibold text-sm tracking-wide",
                   billing === "monthly"
                     ? "bg-slate-900 text-white shadow-lg transform scale-105"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -302,7 +288,7 @@ export default function Pricing() {
                 type="button"
                 aria-pressed={billing === "yearly"}
                 className={cn(
-                  "relative px-8 py-3 rounded-xl transition-all duration-300 font-semibold text-sm tracking-wide",
+                  "relative px-6 py-2.5 md:px-8 md:py-3 rounded-xl transition-all duration-300 font-semibold text-sm tracking-wide",
                   billing === "yearly"
                     ? "bg-slate-900 text-white shadow-lg transform scale-105"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
@@ -319,7 +305,7 @@ export default function Pricing() {
         </div>
 
         {/* Pricing Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {sortedPlans.map((plan, idx) => {
             const isPopular = idx === 1 && sortedPlans.length > 1;
             const price =
@@ -339,21 +325,24 @@ export default function Pricing() {
               actionButton = (
                 <Button
                   className={cn(
-                    "w-full h-12 font-semibold text-base rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5",
+                    "w-full h-11 font-semibold text-sm md:text-base rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5",
                     isPopular
                       ? "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                       : "bg-slate-900 hover:bg-slate-800"
                   )}
-                  onClick={() => handleInitialSubscription(plan.id)}
-                  disabled={isUpdating}
+                  onClick={() => handleStripeCheckout(plan.id)}
+                  disabled={isUpdating || processingPayment}
                 >
-                  {isUpdating ? (
+                  {isUpdating || processingPayment ? (
                     <>
-                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                      Subscribing...
+                      <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mr-2" />
+                      Processing...
                     </>
                   ) : (
-                    "Get Started"
+                    <>
+                      <CreditCard className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                      Subscribe Now
+                    </>
                   )}
                 </Button>
               );
@@ -362,13 +351,13 @@ export default function Pricing() {
                 <div className="space-y-2">
                   <Button
                     variant="outline"
-                    className="w-full h-12 font-semibold text-base rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                    className="w-full h-11 font-semibold text-sm md:text-base rounded-xl border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
                     onClick={handleUnsubscribe}
                     disabled={isUpdating}
                   >
                     {isUpdating ? (
                       <>
-                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mr-2" />
                         Processing...
                       </>
                     ) : (
@@ -381,19 +370,19 @@ export default function Pricing() {
               if (planPriceNumeric > currentPlanPrice) {
                 actionButton = (
                   <Button
-                    className="w-full h-12 font-semibold text-base rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
-                    onClick={() => handlePlanChange(plan.id)}
-                    disabled={isUpdating}
+                    className="w-full h-11 font-semibold text-sm md:text-base rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+                    onClick={() => handleStripeCheckout(plan.id)}
+                    disabled={isUpdating || processingPayment}
                   >
-                    {isUpdating ? (
+                    {isUpdating || processingPayment ? (
                       <>
-                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                        Upgrading...
+                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mr-2" />
+                        Processing...
                       </>
                     ) : (
                       <>
-                        <Zap className="w-5 h-5 mr-2" />
-                        Upgrade Plan
+                        <Zap className="w-4 h-4 md:w-5 md:h-5 mr-2" />
+                        Upgrade
                       </>
                     )}
                   </Button>
@@ -401,14 +390,14 @@ export default function Pricing() {
               } else if (planPriceNumeric < currentPlanPrice) {
                 actionButton = (
                   <Button
-                    className="w-full h-12 font-semibold text-base rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
-                    onClick={() => handlePlanChange(plan.id)}
-                    disabled={isUpdating}
+                    className="w-full h-11 font-semibold text-sm md:text-base rounded-xl bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
+                    onClick={() => handleStripeCheckout(plan.id)}
+                    disabled={isUpdating || processingPayment}
                   >
-                    {isUpdating ? (
+                    {isUpdating || processingPayment ? (
                       <>
-                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                        Downgrading...
+                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mr-2" />
+                        Processing...
                       </>
                     ) : (
                       "Downgrade"
@@ -419,14 +408,14 @@ export default function Pricing() {
                 actionButton = (
                   <Button
                     variant="outline"
-                    className="w-full h-12 font-semibold text-base rounded-xl border-2 hover:bg-slate-50 transition-all duration-300"
-                    onClick={() => handlePlanChange(plan.id)}
-                    disabled={isUpdating}
+                    className="w-full h-11 font-semibold text-sm md:text-base rounded-xl border-2 hover:bg-slate-50 transition-all duration-300"
+                    onClick={() => handleStripeCheckout(plan.id)}
+                    disabled={isUpdating || processingPayment}
                   >
-                    {isUpdating ? (
+                    {isUpdating || processingPayment ? (
                       <>
-                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
-                        Switching...
+                        <Loader2 className="w-4 h-4 md:w-5 md:h-5 animate-spin mr-2" />
+                        Processing...
                       </>
                     ) : (
                       "Switch Plan"
@@ -440,9 +429,9 @@ export default function Pricing() {
               <div
                 key={plan.id}
                 className={cn(
-                  "relative bg-white rounded-3xl shadow-xl border-2 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 group",
+                  "relative bg-white rounded-2xl md:rounded-3xl shadow-xl border-2 transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 group flex flex-col",
                   isPopular
-                    ? "border-blue-200 shadow-blue-100/50 scale-105 z-10"
+                    ? "border-blue-200 shadow-blue-100/50 md:scale-105 z-10"
                     : "border-slate-200 hover:border-slate-300",
                   isCurrentPlan &&
                     "border-green-400 shadow-green-100/50 ring-4 ring-green-100"
@@ -450,8 +439,8 @@ export default function Pricing() {
               >
                 {/* Popular Badge */}
                 {isPopular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold px-6 py-2 rounded-full shadow-lg text-xs tracking-wide">
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold px-4 py-1 md:px-6 md:py-2 rounded-full shadow-lg text-xs tracking-wide">
                       POPULAR
                     </Badge>
                   </div>
@@ -459,63 +448,61 @@ export default function Pricing() {
 
                 {/* Current Plan Badge */}
                 {isCurrentPlan && (
-                  <div className="absolute top-4 right-4">
+                  <div className="absolute top-3 right-3 md:top-4 md:right-4">
                     <Badge className="bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold px-2 py-1 rounded-full shadow-lg text-xs">
-                      <CheckCircle className="w-4 h-4 mr-1" />
+                      <CheckCircle className="w-3 h-3 md:w-4 md:h-4 mr-1" />
                       ACTIVE
                     </Badge>
                   </div>
                 )}
 
-                <div className="p-8 pt-12">
+                <div className="p-5 md:p-6 pt-8 md:pt-10 flex-1 flex flex-col">
                   {/* Plan Icon & Name */}
-                  <div className="text-center mb-6">
-                    <div className="inline-flex items-center justify-center w-10 h-10 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <div className="text-center mb-4 md:mb-6">
+                    <div className="inline-flex items-center justify-center w-8 h-8 md:w-10 md:h-10 rounded-2xl mb-3 md:mb-4 group-hover:scale-110 transition-transform duration-300">
                       {planIcons[idx % planIcons.length]}
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                    <h2 className="text-xl md:text-2xl font-bold text-slate-900 mb-1 md:mb-2">
                       {plan.name}
                     </h2>
-                    <p className="text-slate-600 leading-relaxed min-h-[3rem] flex items-center justify-center">
+                    <p className="text-sm md:text-base text-slate-600 leading-relaxed min-h-[2.5rem] md:min-h-[3rem] flex items-center justify-center">
                       {plan.description}
                     </p>
                   </div>
 
                   {/* Pricing */}
-                  <div className="text-center mb-6">
-                    <div className="flex items-end justify-center gap-2 mb-2">
-                      <span className="text-5xl font-bold text-slate-900">
+                  <div className="text-center mb-4 md:mb-6">
+                    <div className="flex items-end justify-center gap-1 md:gap-2 mb-1 md:mb-2">
+                      <span className="text-3xl md:text-5xl font-bold text-slate-900">
                         ${price}
                       </span>
-                      <span className="text-lg text-slate-500 mb-2">
+                      <span className="text-sm md:text-lg text-slate-500 mb-1 md:mb-2">
                         /{billing === "monthly" ? "month" : "year"}
                       </span>
                     </div>
                     {billing === "yearly" && (
-                      <p className="text-sm text-green-600 font-medium">
+                      <p className="text-xs md:text-sm text-green-600 font-medium">
                         Save ${(plan.yearly_price * 0.1).toFixed(2)} annually
                       </p>
                     )}
                   </div>
 
                   {/* Action Button */}
-                  <div className="mb-8">{actionButton}</div>
+                  <div className="mb-5 md:mb-6">{actionButton}</div>
 
                   {/* Features */}
-                  <div>
-                    <h3 className="font-semibold text-slate-900 mb-4 text-center">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-slate-900 mb-3 md:mb-4 text-center text-sm md:text-base">
                       Everything included:
                     </h3>
-                    <ul className="space-y-3">
+                    <ul className="space-y-2 md:space-y-3">
                       {plan.features.map((feature, i) => (
                         <li
                           key={i}
-                          className="flex items-start gap-3 text-slate-700 group/item"
+                          className="flex items-start gap-2 md:gap-3 text-slate-700 group/item text-xs md:text-sm"
                         >
-                          <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0 group-hover/item:scale-110 transition-transform duration-200" />
-                          <span className="text-sm leading-relaxed">
-                            {feature}
-                          </span>
+                          <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-500 mt-0.5 flex-shrink-0 group-hover/item:scale-110 transition-transform duration-200" />
+                          <span className="leading-relaxed">{feature}</span>
                         </li>
                       ))}
                     </ul>
@@ -527,19 +514,19 @@ export default function Pricing() {
         </div>
 
         {/* Trust Section */}
-        <div className="mt-20 text-center">
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-8 max-w-4xl mx-auto">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-8">
-              <div className="flex items-center gap-2 text-slate-600">
-                <CheckCircle className="w-5 h-5 text-green-500" />
+        <div className="mt-12 md:mt-20 text-center">
+          <div className="bg-white rounded-xl md:rounded-2xl shadow-lg border border-slate-200 p-6 md:p-8 max-w-4xl mx-auto">
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-8">
+              <div className="flex items-center gap-2 text-slate-600 text-sm md:text-base">
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
                 <span className="font-medium">30-day money-back guarantee</span>
               </div>
-              <div className="flex items-center gap-2 text-slate-600">
-                <CheckCircle className="w-5 h-5 text-green-500" />
+              <div className="flex items-center gap-2 text-slate-600 text-sm md:text-base">
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
                 <span className="font-medium">Cancel anytime</span>
               </div>
-              <div className="flex items-center gap-2 text-slate-600">
-                <CheckCircle className="w-5 h-5 text-green-500" />
+              <div className="flex items-center gap-2 text-slate-600 text-sm md:text-base">
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
                 <span className="font-medium">24/7 support</span>
               </div>
             </div>

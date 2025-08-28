@@ -17,6 +17,7 @@ import {
   Star,
   Ban,
   Play,
+  Loader2,
 } from "lucide-react";
 import {
   Dialog,
@@ -389,7 +390,8 @@ export default function OffsetProjects() {
   if (loading && projects.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading offset projects...</span>
       </div>
     );
   }
@@ -546,7 +548,7 @@ export default function OffsetProjects() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="project-gold-standard">
-                  Gold Standard Confirmation
+                  Standard Confirmation
                 </Label>
                 <Input
                   id="project-gold-standard"
@@ -557,7 +559,7 @@ export default function OffsetProjects() {
                       gold_standard_confirmation: e.target.value,
                     })
                   }
-                  placeholder="Gold standard details"
+                  placeholder="Gold standard certified"
                 />
               </div>
               <div className="flex items-center gap-2 mt-2">

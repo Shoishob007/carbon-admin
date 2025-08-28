@@ -40,22 +40,7 @@ import { useSubscriptionStore } from "@/store/subscriptions";
 import { useBillingStore } from "@/store/billingStore";
 import { useQueriesStore } from "@/store/queriesStore";
 import { useEffect, useMemo } from "react";
-
-const emissionData = [
-  { month: "Jan", emissions: 2400, offset: 2000 },
-  { month: "Feb", emissions: 2100, offset: 2200 },
-  { month: "Mar", emissions: 2300, offset: 2400 },
-  { month: "Apr", emissions: 2000, offset: 2300 },
-  { month: "May", emissions: 1900, offset: 2500 },
-  { month: "Jun", emissions: 1800, offset: 2600 },
-];
-
-const offsetProjects = [
-  { name: "Forest Restoration", value: 35, color: "#166534" },
-  { name: "Renewable Energy", value: 30, color: "#15803d" },
-  { name: "Ocean Conservation", value: 20, color: "#16a34a" },
-  { name: "Waste Management", value: 15, color: "#22c55e" },
-];
+import { useOffsetStore } from "@/store/offsetStore";
 
 export default function AdminDashboard() {
   const { apiUsers, fetchUsers, loading } = useUsersStore();
@@ -70,6 +55,32 @@ export default function AdminDashboard() {
     fetchPayments,
   } = useBillingStore();
   const { queries } = useQueriesStore();
+  const {
+    offsetHistory,
+    fetchOffsetHistory,
+  } = useOffsetStore();
+  console.log("Offset History :: ", offsetHistory)
+
+  const offsetProjects = useMemo(() => {
+  const colors = ["#166534", "#15803d", "#16a34a", "#22c55e", "#059669", "#10b981"];
+  
+  // occurrences of each gold_standard_confirmation
+  const projectCounts = offsetHistory.reduce((acc, offset) => {
+    const projectType = offset.gold_standard_confirmation || "Unknown";
+    acc[projectType] = (acc[projectType] || 0) + 1;
+    return acc;
+  }, {});
+
+  const total = offsetHistory.length;
+  if (total === 0) return [];
+
+return Object.entries(projectCounts).map(([name, count], index) => ({
+  name,
+  value: Math.round((Number(count) / total) * 100),
+  count: Number(count),
+  color: colors[index % colors.length]
+}));
+}, [offsetHistory]);
 
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
@@ -84,51 +95,74 @@ export default function AdminDashboard() {
     }
   }, [accessToken, user, fetchUserProfile]);
 
+  // offset data from offsetHistory
+  const offsetData = useMemo(() => {
+    const monthNames = [
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    ];
+    
+    const currentYear = new Date().getFullYear();
+    
+    // all 12 months (Jan to Dec)
+    const allMonthsData = monthNames.map((monthName, i) => ({
+      month: `${monthName} ${currentYear.toString().slice(-2)}`,
+      offset: 0,
+      count: 0, // Number of offset transactions
+      monthIndex: i,
+    }));
+
+    // Group offset data by month
+    offsetHistory.forEach((offset) => {
+      if (offset.date_of_issue) {
+        const issueDate = new Date(offset.date_of_issue);
+        const monthIndex = issueDate.getMonth();
+        const year = issueDate.getFullYear();
+
+        // Only count offsets from the current year
+        if (year === currentYear) {
+          const monthData = allMonthsData[monthIndex];
+          if (monthData) {
+            monthData.offset += offset.carbon_emission_metric_tons;
+            monthData.count += 1;
+          }
+        }
+      }
+    });
+
+    // Return only the data with proper formatting
+    return allMonthsData.map(({ month, offset, count }) => ({
+      month,
+      offset: parseFloat(offset.toFixed(2)),
+      count
+    }));
+  }, [offsetHistory]);
+
   // dynamic user growth data for all 12 months
   const userGrowthData = useMemo(() => {
     const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+      "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     ];
     const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth();
 
-    // data for all 12 months
-    const allMonthsData = Array.from({ length: 12 }, (_, i) => {
-      const monthIndex = (currentMonth - 11 + i + 12) % 12;
-      const monthName = `${monthNames[monthIndex]} ${currentYear
-        .toString()
-        .slice(-2)}`;
-      return {
-        month: monthName,
-        users: 0,
-        date: new Date(currentYear, monthIndex, 1),
-      };
-    });
+    // Initialize all 12 months (Jan to Dec) for the current year
+    const allMonthsData = monthNames.map((monthName, i) => ({
+      month: `${monthName} ${currentYear.toString().slice(-2)}`,
+      users: 0,
+      monthIndex: i,
+    }));
 
-    // users per month
+    // Count users per month
     apiUsers.forEach((user) => {
       if (user.profile?.created_at) {
         const date = new Date(user.profile.created_at);
         const monthIndex = date.getMonth();
         const year = date.getFullYear();
 
-        // count if it's current year
+        // Count if it's current year
         if (year === currentYear) {
-          const monthData = allMonthsData.find(
-            (m) =>
-              m.date.getMonth() === monthIndex && m.date.getFullYear() === year
-          );
+          const monthData = allMonthsData[monthIndex];
           if (monthData) {
             monthData.users += 1;
           }
@@ -136,7 +170,7 @@ export default function AdminDashboard() {
       }
     });
 
-    // cumulative users
+    // Convert to cumulative users
     let cumulative = 0;
     return allMonthsData.map((item) => {
       cumulative += item.users;
@@ -155,6 +189,13 @@ export default function AdminDashboard() {
       fetchPlans(accessToken);
     }
   }, [accessToken, user, fetchUsers, fetchPlans, role]);
+  
+  // all history on mount
+  useEffect(() => {
+    if (accessToken) {
+      fetchOffsetHistory(accessToken);
+    }
+  }, [accessToken, fetchOffsetHistory]);
 
   useEffect(() => {
     if (accessToken && role) {
@@ -163,20 +204,16 @@ export default function AdminDashboard() {
   }, [accessToken, fetchPayments, role]);
 
   const allPlans = [...activePlans, ...inactivePlans];
-  const activeSubscribers = allPlans.reduce(
-    (sum, plan) => sum + (plan.is_active ? 1 : 0),
-    0
-  );
-  const totalRevenue = payments
-    .filter((p) => p.payment_status === "completed")
-    .reduce((sum, payment) => sum + parseFloat(payment.amount), 0);
-
   const totalPayments = payments.length;
   const pendingPayments = payments.filter(
     (p) => p.payment_status === "pending"
   ).length;
+  const totalTonnes = offsetHistory.reduce(
+    (sum, offset) => sum + offset.carbon_emission_metric_tons,
+    0
+  );
 
-  // Helper function to truncate text
+  // function to truncate text
   const truncateText = (text, maxLength = 200) => {
     if (!text) return "";
     return text.length > maxLength
@@ -184,7 +221,7 @@ export default function AdminDashboard() {
       : text;
   };
 
-  // Helper function to get status badge color
+  // function to get status badge color
   const getStatusBadgeColor = (status) => {
     switch (status) {
       case "pending":
@@ -198,6 +235,25 @@ export default function AdminDashboard() {
       default:
         return "bg-gray-500";
     }
+  };
+
+  // Custom tooltip component for the offset chart
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white p-3 border rounded-lg shadow-lg">
+          <p className="text-sm font-medium">{`${label}`}</p>
+          <p className="text-sm text-green-600">
+            {`Offsets: ${data.offset} tons`}
+          </p>
+          <p className="text-xs text-gray-500">
+            {`${data.count} transactions`}
+          </p>
+        </div>
+      );
+    }
+    return null;
   };
 
   if (loading && !user) {
@@ -314,16 +370,16 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Monthly Revenue
+              Total Carbon Offsets
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
+            <Globe className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-700">
-              ${totalRevenue.toLocaleString()}
+              {totalTonnes.toFixed(2)} tons
             </div>
             <p className="text-xs text-muted-foreground">
-              +{(totalRevenue * 0.1).toFixed(1)}% from last month
+              {offsetHistory.length} transactions
             </p>
           </CardContent>
         </Card>
@@ -334,33 +390,28 @@ export default function AdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-carbon-600" />
-              Emissions vs Offsets
+              <BarChart3 className="h-5 w-5 text-green-600" />
+              Monthly Carbon Offsets
             </CardTitle>
             <CardDescription>
-              Monthly carbon emissions and offset comparison
+              Carbon offsets purchased by month (metric tons)
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={emissionData}>
+              <LineChart data={offsetData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="emissions"
-                  stroke="#f97316"
-                  strokeWidth={2}
-                  name="Emissions (tons)"
-                />
+                <Tooltip content={<CustomTooltip active={undefined} payload={undefined} label={undefined} />} />
                 <Line
                   type="monotone"
                   dataKey="offset"
                   stroke="#22c55e"
-                  strokeWidth={2}
+                  strokeWidth={3}
                   name="Offsets (tons)"
+                  dot={{ fill: '#22c55e', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: '#22c55e', strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -393,15 +444,20 @@ export default function AdminDashboard() {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+  formatter={(value, name) => [
+    `${value}% (${offsetProjects.find(p => p.name === name)?.count || 0} projects)`, 
+    name
+  ]} 
+/>
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* User Growth Chart - Full Width */}
-      <Card>
+      {/* User Growth Chart*/}
+<Card>
         <CardHeader>
           <CardTitle>User Growth</CardTitle>
           <CardDescription>
@@ -426,7 +482,7 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Recent Queries - Full Width */}
+      {/* Recent Queries */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
