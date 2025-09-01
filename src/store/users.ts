@@ -12,8 +12,6 @@ interface User {
   profile: {
     api_requests_made: number;
     total_requests_limit: number;
-    created_at: string;
-    updated_at: string;
   };
   business_profile: {
     company_name: string;
@@ -30,6 +28,14 @@ interface User {
     plan_name: string;
     status: string;
   } | null;
+}
+
+interface FilterParams {
+  search?: string;
+  role?: string;
+  is_active?: string;
+  payment_type?: string;
+  payment_status?: string;
 }
 
 interface UpdateUserData {
@@ -52,15 +58,32 @@ interface UsersState {
   apiUsers: User[];
   loading: boolean;
   error: string | null;
-  fetchUsers: (accessToken: string) => Promise<void>;
-  createUser: (accessToken: string, userData: {
-    email: string;
-    name: string;
-    role: "individual" | "business";
-    password: string;
-  }) => Promise<void>;
-  updateUser: (accessToken: string, userId: number, userData: UpdateUserData) => Promise<void>;
-  updateUserStatus: (accessToken: string, userId: number, isActive: boolean) => Promise<void>;
+  fetchUsers: (
+    accessToken: string,
+    filters?: FilterParams,
+    page?: number,
+    limit?: number
+  ) => Promise<void>;
+  createUser: (
+    accessToken: string,
+    userData: {
+      email: string;
+      name: string;
+      role: "individual" | "business";
+      password: string;
+    }
+  ) => Promise<void>;
+  updateUser: (
+    accessToken: string,
+    userId: number,
+    userData: UpdateUserData
+  ) => Promise<void>;
+  updateUserStatus: (
+    accessToken: string,
+    userId: number,
+    isActive: boolean
+  ) => Promise<void>;
+  totalCount: number;
 }
 
 export const useUsersStore = create<UsersState>()(
@@ -69,12 +92,33 @@ export const useUsersStore = create<UsersState>()(
       apiUsers: [],
       loading: false,
       error: null,
-      fetchUsers: async (accessToken: string) => {
+      totalCount: 0,
+
+      fetchUsers: async (
+        accessToken: string,
+        filters?: FilterParams,
+        page = 1,
+        limit = 10
+      ) => {
         set({ loading: true, error: null });
         try {
           const url = new URL(
             `${import.meta.env.VITE_API_URL}/api/users/users`
           );
+
+          // parameters
+          url.searchParams.append("page", page.toString());
+          url.searchParams.append("limit", limit.toString());
+
+          // Add filter parameters
+          if (filters) {
+            Object.entries(filters).forEach(([key, value]) => {
+              if (value && value.trim() !== "") {
+                url.searchParams.append(key, value);
+              }
+            });
+          }
+
           const response = await fetch(url.toString(), {
             method: "GET",
             headers: {
@@ -86,10 +130,19 @@ export const useUsersStore = create<UsersState>()(
           if (!response.ok) throw new Error("Failed to fetch users");
 
           const data = await response.json();
-          
-          const filteredUsers = data.users.filter((user: User) => user.role !== "super_admin");
-          
-          set({ apiUsers: filteredUsers });
+
+          // Filter out super_admin users
+          const filteredUsers = data.users.filter(
+            (user: User) => user.role !== "super_admin"
+          );
+
+          const startIndex = (page - 1) * limit;
+          const endIndex = startIndex + limit;
+
+          set({
+            apiUsers: filteredUsers.slice(startIndex, endIndex),
+            totalCount: filteredUsers.length,
+          });
         } catch (error) {
           set({
             error:
@@ -132,7 +185,11 @@ export const useUsersStore = create<UsersState>()(
           set({ loading: false });
         }
       },
-      updateUser: async (accessToken: string, userId: number, userData: UpdateUserData) => {
+      updateUser: async (
+        accessToken: string,
+        userId: number,
+        userData: UpdateUserData
+      ) => {
         set({ loading: true, error: null });
         try {
           const url = new URL(
@@ -166,11 +223,17 @@ export const useUsersStore = create<UsersState>()(
           set({ loading: false });
         }
       },
-      updateUserStatus: async (accessToken: string, userId: number, isActive: boolean) => {
+      updateUserStatus: async (
+        accessToken: string,
+        userId: number,
+        isActive: boolean
+      ) => {
         set({ loading: true, error: null });
         try {
           const url = new URL(
-            `${import.meta.env.VITE_API_URL}/api/users/admin/users/${userId}/status/`
+            `${
+              import.meta.env.VITE_API_URL
+            }/api/users/admin/users/${userId}/status/`
           );
           const response = await fetch(url.toString(), {
             method: "PATCH",
@@ -184,7 +247,9 @@ export const useUsersStore = create<UsersState>()(
           if (!response.ok) {
             const errorData = await response.json();
             throw new Error(
-              errorData.message || errorData.detail || "Failed to update user status"
+              errorData.message ||
+                errorData.detail ||
+                "Failed to update user status"
             );
           }
 
@@ -193,7 +258,9 @@ export const useUsersStore = create<UsersState>()(
         } catch (error) {
           set({
             error:
-              error instanceof Error ? error.message : "Failed to update user status",
+              error instanceof Error
+                ? error.message
+                : "Failed to update user status",
           });
           throw error;
         } finally {
