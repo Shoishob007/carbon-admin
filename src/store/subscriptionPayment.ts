@@ -101,7 +101,6 @@ export const useSubscriptionPaymentStore = create<SubscriptionPaymentState>(
     },
 
     verifyPaymentCompletion: async (sessionId) => {
-      // ✅ skip if already verified
       const { lastVerifiedSessionId, paymentVerification } = get();
       if (lastVerifiedSessionId === sessionId && paymentVerification) {
         console.log("✅ Already verified this session, skipping...");
@@ -130,7 +129,7 @@ export const useSubscriptionPaymentStore = create<SubscriptionPaymentState>(
 
         set({
           paymentVerification: data,
-          lastVerifiedSessionId: sessionId, // ✅ store it
+          lastVerifiedSessionId: sessionId,
           loading: false,
           error: null,
         });
@@ -160,7 +159,7 @@ export const useSubscriptionPaymentStore = create<SubscriptionPaymentState>(
         error: null,
         checkoutSession: null,
         paymentVerification: null,
-        lastVerifiedSessionId: null, // ✅ clear it too
+        lastVerifiedSessionId: null,
       }),
   })
 );

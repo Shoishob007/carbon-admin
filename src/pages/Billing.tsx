@@ -273,7 +273,7 @@ export default function Billing() {
           </h1>
           <p className="text-muted-foreground mt-2">
             {role === "business"
-              ? "View your payment history and invoices"
+              ? "My payment history and invoices"
               : "Manage customer billing information and review invoices"}
           </p>
         </div>

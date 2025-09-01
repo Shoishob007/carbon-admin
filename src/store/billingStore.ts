@@ -9,6 +9,15 @@ interface SubscriptionDetails {
   status: string;
 }
 
+interface CarbonOffsetDetails {
+  confirmation_number: string;
+  certificate_number: string;
+  project_name: string;
+  carbon_emission_metric_tons: number;
+  certification_name: string;
+  payment_status: string;
+}
+
 interface Payment {
   id: number;
   user: number;
@@ -16,11 +25,13 @@ interface Payment {
   user_name: string;
   subscription: number;
   subscription_details: SubscriptionDetails;
+  carbon_offset_details?: CarbonOffsetDetails;
   amount: string;
   payment_date: string;
   payment_status: string;
   payment_method: string | null;
   payment_method_details: any | null;
+  
   transaction_id: string;
 }
 
@@ -38,7 +49,6 @@ interface BillingState {
   payments: Payment[];
   subscriptionPayments: Payment[];
   offsetPayments: Payment[];
-
   loading: boolean;
   error: string | null;
   selectedPayment: PaymentDetailsResponse | null;
@@ -83,7 +93,7 @@ export const useBillingStore = create<BillingState>()(
         set({ loading: true, error: null });
         try {
           let url;
-          if (role === "business") {
+          if (role === "business" || role === "individual") {
             url = `${
               import.meta.env.VITE_API_URL
             }/api/subscription/my-payments/`;
@@ -123,10 +133,10 @@ export const useBillingStore = create<BillingState>()(
         set({ loading: true, error: null });
         try {
           let url;
-          if (role === "business") {
+          if (role === "business" || role === "individual") {
             url = `${
               import.meta.env.VITE_API_URL
-            }/api/subscription/my-payments/`;
+            }/api/subscription/my-payments/?payment_type=subscription`;
           } else {
             url = `${
               import.meta.env.VITE_API_URL
@@ -163,10 +173,10 @@ export const useBillingStore = create<BillingState>()(
         set({ loading: true, error: null });
         try {
           let url;
-          if (role === "business") {
+          if (role === "business" || role === "individual") {
             url = `${
               import.meta.env.VITE_API_URL
-            }/api/subscription/my-payments/`;
+            }/api/subscription/my-payments/?payment_type=carbon_offset`;
           } else {
             url = `${
               import.meta.env.VITE_API_URL
