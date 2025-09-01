@@ -184,7 +184,7 @@ export default function InvoiceDetailsDialog({
             )}
 
             {/* Payments */}
-            <div className="border-t pt-4">
+            {/* <div className="border-t pt-4">
               <h4 className="text-lg font-semibold mb-3">Payment History</h4>
               {selectedInvoice.payments && selectedInvoice.payments.length ? (
                 <div className="space-y-4">
@@ -259,7 +259,7 @@ export default function InvoiceDetailsDialog({
                   <p>No payment history available</p>
                 </div>
               )}
-            </div>
+            </div> */}
           </div>
         ) : (
           <div className="text-center text-muted-foreground py-8">

@@ -21,12 +21,6 @@ import CreateInvoiceDialog from "@/components/CreateInvoiceDialogue";
 import CustomerPayments from "@/components/CustomerPayments";
 import InvoicesComponent from "@/components/Invoices";
 
-interface SubscriptionDetails {
-  plan_name?: string;
-  payment_frequency?: string;
-  status?: string;
-}
-
 export default function Billing() {
   const {
     payments,
@@ -38,7 +32,8 @@ export default function Billing() {
     fetchPayments,
     fetchOffsetPayments,
     fetchSubscriptionPayments,
-    fetchPaymentById,
+    fetchPaymentHistoryById,
+    fetchPaymentDetailsById,
     clearSelectedPayment,
     updatePaymentStatus,
     addPayment,
@@ -58,7 +53,7 @@ export default function Billing() {
   } = useInvoiceStore();
 
   const { accessToken } = useAuthStore();
-  console.log("Access TTOken :: ", accessToken);
+  // console.log("Access Token :: ", accessToken);
   const role = useAuthStore((state) => state.user?.role);
 
   // Dialog states
@@ -113,14 +108,14 @@ export default function Billing() {
     }
   };
 
-  const handleViewPaymentDetails = async (userId: number) => {
+  const handleViewPaymentDetails = async (id: number) => {
     if (accessToken && role) {
-      await fetchPaymentById(userId, accessToken, role);
+      await fetchPaymentDetailsById(id, accessToken, role);
       setIsPaymentDialogOpen(true);
     }
   };
 
-  console.log("selectedPayment :: ", selectedPayment);
+  // console.log("selectedPayment :: ", selectedPayment);
 
   const handleClosePaymentDialog = () => {
     setIsPaymentDialogOpen(false);

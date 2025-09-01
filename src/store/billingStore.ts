@@ -31,7 +31,7 @@ interface Payment {
   payment_status: string;
   payment_method: string | null;
   payment_method_details: any | null;
-  
+
   transaction_id: string;
 }
 
@@ -53,13 +53,19 @@ interface BillingState {
   error: string | null;
   selectedPayment: PaymentDetailsResponse | null;
   fetchPayments: (accessToken: string, role: string) => Promise<void>;
+  fetchPaymentDetailsById: (
+    id: number,
+    accessToken: string,
+    role: string
+  ) => Promise<void>;
+
   fetchSubscriptionPayments: (
     accessToken: string,
     role: string
   ) => Promise<void>;
   fetchOffsetPayments: (accessToken: string, role: string) => Promise<void>;
 
-  fetchPaymentById: (
+  fetchPaymentHistoryById: (
     id: number,
     accessToken: string,
     role: string
@@ -117,6 +123,50 @@ export const useBillingStore = create<BillingState>()(
 
           const data = await response.json();
           set({ payments: data.payments || [] });
+        } catch (error) {
+          set({
+            error:
+              error instanceof Error
+                ? error.message
+                : "Failed to fetch payments",
+          });
+        } finally {
+          set({ loading: false });
+        }
+      },
+
+      fetchPaymentDetailsById: async (
+        id: number,
+        accessToken: string,
+        role: string
+      ) => {
+        set({ loading: true, error: null });
+        try {
+          let url;
+          if (role === "business" || role === "individual") {
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/my-payments/${id}/`;
+          } else {
+            url = `${
+              import.meta.env.VITE_API_URL
+            }/api/subscription/admin/payments/${id}/`;
+          }
+
+          const response = await fetch(url, {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch payments");
+          }
+
+          const data = await response.json();
+          set({ selectedPayment: data.payment });
         } catch (error) {
           set({
             error:
@@ -209,7 +259,7 @@ export const useBillingStore = create<BillingState>()(
         }
       },
 
-      fetchPaymentById: async (
+      fetchPaymentHistoryById: async (
         id: number,
         accessToken: string,
         role: string

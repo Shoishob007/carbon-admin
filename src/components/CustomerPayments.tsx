@@ -77,10 +77,9 @@ export default function CustomerPayments({
 }: CustomerPaymentsProps) {
   const [paymentType, setPaymentType] = useState<string>("subscription");
 
-  console.log("Payments :: ", payments)
-    console.log("subscriptionPayments :: ", subscriptionPayments)
-  console.log("offsetPayments :: ", offsetPayments)
-
+  // console.log("Payments :: ", payments)
+  //   console.log("subscriptionPayments :: ", subscriptionPayments)
+  // console.log("offsetPayments :: ", offsetPayments)
 
   const displayedPayments =
     paymentType === "subscription"
@@ -136,137 +135,150 @@ export default function CustomerPayments({
       </CardHeader>
 
       <CardContent>
-<Table>
-  <TableHeader>
-    <TableRow>
-      {role !== "business" && <TableHead>Customer</TableHead>}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {role !== "business" && <TableHead>Customer</TableHead>}
 
-      {/* Conditional columns */}
-      {paymentType === "subscription" ? (
-        <>
-          <TableHead>Plan</TableHead>
-          <TableHead>Frequency</TableHead>
-        </>
-      ) : (
-        <>
-          <TableHead>Project</TableHead>
-          <TableHead>Certificate</TableHead>
-          <TableHead>Carbon Tons</TableHead>
-        </>
-      )}
+              {/* Conditional columns */}
+              {paymentType === "subscription" ? (
+                <>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Frequency</TableHead>
+                </>
+              ) : (
+                <>
+                  <TableHead>Project</TableHead>
+                  <TableHead>Certificate</TableHead>
+                  <TableHead>Carbon Tons</TableHead>
+                </>
+              )}
 
-      <TableHead>Amount</TableHead>
-      <TableHead>Payment Date</TableHead>
-      <TableHead>Payment Status</TableHead>
-      <TableHead>Actions</TableHead>
-    </TableRow>
-  </TableHeader>
+              <TableHead>Amount</TableHead>
+              <TableHead>Payment Date</TableHead>
+              <TableHead>Payment Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
 
-  <TableBody>
-    {paginatedPayments.map((payment) => (
-      <TableRow key={payment.id}>
-        {role !== "business" && (
-          <TableCell className="font-medium">
-            <div>{payment.user_name || "N/A"}</div>
-            <div className="text-sm text-muted-foreground">
-              {payment.user_email || "N/A"}
-            </div>
-          </TableCell>
-        )}
+          <TableBody>
+            {paginatedPayments.map((payment) => (
+              <TableRow key={payment.id}>
+                {role !== "business" && (
+                  <TableCell className="font-medium">
+                    <div>{payment.user_name || "N/A"}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {payment.user_email || "N/A"}
+                    </div>
+                  </TableCell>
+                )}
 
-        {/* Conditional cells */}
-        {paymentType === "subscription" ? (
-          <>
-            <TableCell>{payment.subscription_details?.plan_name || "N/A"}</TableCell>
-            <TableCell>
-              {payment.subscription_details?.payment_frequency || "N/A"}
-            </TableCell>
-          </>
-        ) : (
-          <>
-            <TableCell>
-              {payment.carbon_offset_details?.project_name || "N/A"}
-            </TableCell>
-            <TableCell>
-              {payment.carbon_offset_details?.certificate_number || "N/A"}
-            </TableCell>
-            <TableCell>
-              {payment.carbon_offset_details?.carbon_emission_metric_tons || "N/A"}
-            </TableCell>
-          </>
-        )}
+                {/* Conditional cells */}
+                {paymentType === "subscription" ? (
+                  <>
+                    <TableCell>
+                      {payment.subscription_details?.plan_name || "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {payment.subscription_details?.payment_frequency || "N/A"}
+                    </TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell>
+                      {payment.carbon_offset_details?.project_name || "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {payment.carbon_offset_details?.certificate_number ||
+                        "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {payment.carbon_offset_details
+                        ?.carbon_emission_metric_tons || "N/A"}
+                    </TableCell>
+                  </>
+                )}
 
-        <TableCell>${payment.amount || "0.00"}</TableCell>
-        <TableCell>
-          {payment.payment_date
-            ? new Date(payment.payment_date).toLocaleDateString()
-            : "N/A"}
-        </TableCell>
-        <TableCell>
-          {role === "super_admin" ? (
-            <Select
-              value={payment.payment_status}
-              onValueChange={(value) => onStatusChange(payment.id, value)}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Select status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : (
-            <Badge
-              variant={
-                payment.payment_status === "completed"
-                  ? "default"
-                  : payment.payment_status === "pending"
-                  ? "secondary"
-                  : "destructive"
-              }
-              className={
-                payment.payment_status === "completed"
-                  ? "bg-green-500"
-                  : payment.payment_status === "pending"
-                  ? "bg-yellow-500"
-                  : "bg-red-500"
-              }
-            >
-              {payment.payment_status
-                ? payment.payment_status.charAt(0).toUpperCase() +
-                  payment.payment_status.slice(1)
-                : "N/A"}
-            </Badge>
-          )}
-        </TableCell>
-        <TableCell>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onViewDetails(payment.user)}
-          >
-            <FileText className="h-4 w-4" />
-            User Payment History
-          </Button>
-        </TableCell>
-      </TableRow>
-    ))}
+                <TableCell>${payment.amount || "0.00"}</TableCell>
+                <TableCell>
+                  {payment.payment_date
+                    ? new Date(payment.payment_date).toLocaleDateString()
+                    : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {role === "super_admin" ? (
+                    <Select
+                      value={payment.payment_status}
+                      onValueChange={(value) =>
+                        onStatusChange(payment.id, value)
+                      }
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge
+                      variant={
+                        payment.payment_status === "completed"
+                          ? "default"
+                          : payment.payment_status === "pending"
+                          ? "secondary"
+                          : "destructive"
+                      }
+                      className={
+                        payment.payment_status === "completed"
+                          ? "bg-green-500"
+                          : payment.payment_status === "pending"
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
+                      }
+                    >
+                      {payment.payment_status
+                        ? payment.payment_status.charAt(0).toUpperCase() +
+                          payment.payment_status.slice(1)
+                        : "N/A"}
+                    </Badge>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onViewDetails(payment.id)}
+                  >
+                    <FileText className="h-4 w-4" />
+                    Payment Details
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
 
-    {displayedPayments.length === 0 && (
-      <TableRow>
-        <TableCell
-          colSpan={role === "business" ? (paymentType === "subscription" ? 6 : 7) : (paymentType === "subscription" ? 7 : 8)}
-          className="text-center text-muted-foreground"
-        >
-          No {paymentType} payment records found.
-        </TableCell>
-      </TableRow>
-    )}
-  </TableBody>
-</Table>
-
+            {displayedPayments.length === 0 && (
+              <TableRow>
+                <TableCell
+                  colSpan={
+                    role === "business"
+                      ? paymentType === "subscription"
+                        ? 6
+                        : 7
+                      : paymentType === "subscription"
+                      ? 7
+                      : 8
+                  }
+                  className="text-center text-muted-foreground"
+                >
+                  No {paymentType} payment records found.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
 
         {/* Payments Pagination */}
         {displayedPayments.length > 0 && (
