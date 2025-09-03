@@ -10,6 +10,7 @@ interface User {
   profile_image: string | null;
   bio?: string;
   profile: {
+    created_at: any;
     api_requests_made: number;
     total_requests_limit: number;
   };

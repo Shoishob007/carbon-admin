@@ -61,13 +61,8 @@ export default function Pricing() {
   const { activePlans, loading, error, fetchPublicPlans } =
     usePublicSubscriptionStore();
 
-  const {
-    subscription,
-    fetchMySubscription,
-    updateMySubscription,
-    createSubscription,
-    unsubscribeFromPlan,
-  } = useMySubscriptionStore();
+  const { subscription, fetchMySubscription, unsubscribeFromPlan } =
+    useMySubscriptionStore();
 
   const {
     createCheckoutSession,
@@ -85,7 +80,6 @@ export default function Pricing() {
   } = useUserProfile();
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
-  const navigate = useNavigate();
 
   const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
   const [updatingPlanId, setUpdatingPlanId] = useState<number | null>(null);

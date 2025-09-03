@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Card,
   CardContent,
@@ -13,11 +14,11 @@ import {
   TrendingUp,
   TrendingDown,
   Leaf,
-  Factory,
-  Globe,
-  Users,
-  DollarSign,
   BarChart3,
+  Server,
+  CreditCard,
+  Calendar,
+  Loader2,
 } from "lucide-react";
 import {
   LineChart,
@@ -27,44 +28,30 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   BarChart,
   Bar,
 } from "recharts";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { useOffsetStore } from "@/store/offsetStore";
+import { useBillingStore } from "@/store/billingStore";
 
-const emissionData = [
-  { month: "Jan", emissions: 2400, offset: 2000 },
-  { month: "Feb", emissions: 2100, offset: 2200 },
-  { month: "Mar", emissions: 2300, offset: 2400 },
-  { month: "Apr", emissions: 2000, offset: 2300 },
-  { month: "May", emissions: 1900, offset: 2500 },
-  { month: "Jun", emissions: 1800, offset: 2600 },
-];
-
-const offsetProjects = [
-  { name: "Forest Restoration", value: 35, color: "#166534" },
-  { name: "Renewable Energy", value: 30, color: "#15803d" },
-  { name: "Ocean Conservation", value: 20, color: "#16a34a" },
-  { name: "Waste Management", value: 15, color: "#22c55e" },
-];
-
-const userGrowth = [
-  { month: "Jan", users: 120 },
-  { month: "Feb", users: 150 },
-  { month: "Mar", users: 180 },
-  { month: "Apr", users: 220 },
-  { month: "May", users: 280 },
-  { month: "Jun", users: 340 },
+const apiGrowthData = [
+  { month: "Jan", calls: 1200 },
+  { month: "Feb", calls: 1900 },
+  { month: "Mar", calls: 2300 },
+  { month: "Apr", calls: 2800 },
+  { month: "May", calls: 3200 },
+  { month: "Jun", calls: 4100 },
 ];
 
 export default function UserDashboard() {
-    console.log("this is user dash")
+  console.log("this is user dash");
 
   const { user, fetchUserProfile } = useUserStore();
-    const { accessToken } = useAuthStore();
+  const { accessToken } = useAuthStore();
+  const { payments } = useBillingStore();
+  const { myOffsets, fetchMyOffsets } = useOffsetStore();
+
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     year: "numeric",
@@ -72,11 +59,137 @@ export default function UserDashboard() {
     day: "numeric",
   });
 
-    useEffect(() => {
+  useEffect(() => {
     if (accessToken && !user) {
       fetchUserProfile(accessToken);
     }
-  }, [accessToken, user, fetchUserProfile]);
+    if (accessToken) {
+      fetchMyOffsets(accessToken);
+    }
+  }, [accessToken, user, fetchUserProfile, fetchMyOffsets]);
+
+  // offset data for chart
+  const offsetData = useMemo(() => {
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const currentYear = new Date().getFullYear();
+
+    // Initialize data for all months with zeros
+    const monthlyData = monthNames.map((month, index) => ({
+      month: `${month} ${currentYear.toString().slice(-2)}`,
+      offset: 0,
+      count: 0,
+      monthIndex: index,
+    }));
+
+    // Process each offset transaction
+    myOffsets.forEach((offset) => {
+      if (offset.date) {
+        const date = new Date(offset.date);
+        const monthIndex = date.getMonth();
+        const year = date.getFullYear();
+
+        // Only process transactions from current year
+        if (year === currentYear) {
+          monthlyData[monthIndex].offset += offset.total_tons || 0;
+          monthlyData[monthIndex].count += 1;
+        }
+      }
+    });
+
+    return monthlyData;
+  }, [myOffsets]);
+
+  // tooltip component for the offset chart
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white p-3 border rounded-lg shadow-lg">
+          <p className="text-sm font-medium">{`${label}`}</p>
+          <p className="text-sm text-green-600">
+            {`Offsets: ${data.offset.toFixed(2)} tons`}
+          </p>
+          <p className="text-xs text-gray-500">
+            {`${data.count} transaction${data.count !== 1 ? "s" : ""}`}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // total offsets
+  const totalOffsets = useMemo(() => {
+    return myOffsets.reduce(
+      (total, offset) => total + (offset.total_tons || 0),
+      0
+    );
+  }, [myOffsets]);
+
+  // total API calls
+  const totalApiCalls = Number(user?.profile?.api_requests_made) || 0;
+
+  // total CO₂
+  const totalCO2 = 3.2; // Placeholder (mock)
+
+  // last payment
+  const lastPayment = payments.length > 0 ? payments[0] : null;
+
+  // Show loading state while fetching user
+  if (!user) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="bg-carbon-gradient rounded-lg p-6 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="h-8 w-64 bg-white/20 rounded mb-2 animate-pulse"></div>
+              <div className="h-4 w-96 bg-white/10 rounded animate-pulse"></div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold">{formattedDate}</div>
+              <div className="text-carbon-100">Your Emission Lab Dashboard</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 w-4 bg-gray-200 rounded animate-pulse"></div>
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 w-16 bg-gray-200 rounded animate-pulse mb-2"></div>
+                <div className="h-3 w-32 bg-gray-200 rounded animate-pulse"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="animate-spin h-8 w-8 text-primary" />
+          <span className="ml-2 text-muted-foreground">
+            Loading dashboard...
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -104,15 +217,39 @@ export default function UserDashboard() {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total CO₂ Offset
+              API Calls Made
             </CardTitle>
-            <Leaf className="h-4 w-4 text-carbon-600" />
+            <Server className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-carbon-700">2,847 tons</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingUp className="mr-1 h-3 w-3 text-carbon-500" />
-              +12.3% from last month
+            <div className="text-2xl font-bold text-blue-600">
+              {totalApiCalls}
+            </div>
+            <div className="flex flex-col gap-2 text-xs text-muted-foreground">
+              {user?.profile?.total_requests_limit ? (
+                <>
+                  <Progress
+                    value={
+                      user?.profile?.total_requests_limit && totalApiCalls
+                        ? (Number(totalApiCalls) /
+                            Number(user.profile.total_requests_limit)) *
+                          100
+                        : 0
+                    }
+                    className="h-2 mr-2 w-full"
+                  />
+                  {user?.profile?.total_requests_limit && totalApiCalls
+                    ? Math.round(
+                        (Number(totalApiCalls) /
+                          Number(user.profile.total_requests_limit)) *
+                          100
+                      )
+                    : 0}
+                  % of your limit
+                </>
+              ) : (
+                "Unlimited plan"
+              )}
             </div>
           </CardContent>
         </Card>
@@ -120,15 +257,17 @@ export default function UserDashboard() {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Active Emissions
+              Total CO₂ Calculated
             </CardTitle>
-            <Factory className="h-4 w-4 text-orange-600" />
+            <Leaf className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-700">1,234 tons</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {totalCO2.toFixed(1)} tons
+            </div>
             <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingDown className="mr-1 h-3 w-3 text-green-500" />
-              -8.2% from last month
+              <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
+              +15% from last month
             </div>
           </CardContent>
         </Card>
@@ -136,30 +275,43 @@ export default function UserDashboard() {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Registered Users
+              Total Offsets Done
             </CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
+            <Leaf className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-700">3,456</div>
+            <div className="text-2xl font-bold text-green-600">
+              {totalOffsets.toFixed(2)} tons
+            </div>
             <div className="flex items-center text-xs text-muted-foreground">
               <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-              +23.1% from last month
+              +10% from last month
             </div>
           </CardContent>
         </Card>
 
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium">
+              {lastPayment ? "Last Payment" : "Payment Information"}
+            </CardTitle>
+            <CreditCard className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-700">$45,231</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-              +19.7% from last month
-            </div>
+            {lastPayment ? (
+              <>
+                <div className="text-2xl font-bold text-purple-600">
+                  ${lastPayment.amount}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {new Date(lastPayment.payment_date).toLocaleDateString()}
+                </div>
+              </>
+            ) : (
+              <div className="text-2xl font-bold text-purple-600">
+                No payments yet
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -169,129 +321,53 @@ export default function UserDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-carbon-600" />
-              Emissions vs Offsets
+              <BarChart3 className="h-5 w-5 text-green-600" />
+              Monthly Carbon Offsets
             </CardTitle>
             <CardDescription>
-              Monthly carbon emissions and offset comparison
+              Carbon offsets purchased by month (metric tons)
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={emissionData}>
+              <LineChart data={offsetData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="emissions"
-                  stroke="#f97316"
-                  strokeWidth={2}
-                  name="Emissions (tons)"
-                />
+                <Tooltip content={<CustomTooltip />} />
                 <Line
                   type="monotone"
                   dataKey="offset"
                   stroke="#22c55e"
-                  strokeWidth={2}
+                  strokeWidth={3}
                   name="Offsets (tons)"
+                  dot={{ fill: "#22c55e", strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: "#22c55e", strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
+        {/* API Growth Bar Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-carbon-600" />
-              Offset Projects Distribution
+              <BarChart3 className="h-5 w-5 text-blue-600" />
+              API Call Growth
             </CardTitle>
-            <CardDescription>
-              Breakdown of carbon offset project types
-            </CardDescription>
+            <CardDescription>Monthly API request trends</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={offsetProjects}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={(entry) => `${entry.name}: ${entry.value}%`}
-                >
-                  {offsetProjects.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity & User Growth */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>User Growth</CardTitle>
-            <CardDescription>Monthly user registration trends</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={userGrowth}>
+              <BarChart data={apiGrowthData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="users" fill="#22c55e" />
+                <Bar dataKey="calls" fill="#3b82f6" />
               </BarChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Frequently used admin actions</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Carbon Credit Verification</span>
-                <Badge variant="secondary">Pending: 12</Badge>
-              </div>
-              <Progress value={75} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>Monthly Reports</span>
-                <Badge variant="secondary">Due: 3</Badge>
-              </div>
-              <Progress value={60} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>User Approvals</span>
-                <Badge variant="secondary">Queue: 8</Badge>
-              </div>
-              <Progress value={40} className="h-2" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span>System Health</span>
-                <Badge className="bg-carbon-500">Good</Badge>
-              </div>
-              <Progress value={95} className="h-2" />
-            </div>
           </CardContent>
         </Card>
       </div>
@@ -299,74 +375,52 @@ export default function UserDashboard() {
       {/* Recent Activities */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activities</CardTitle>
+          <CardTitle>Recent Offset Activities</CardTitle>
           <CardDescription>
-            Latest actions and updates across the platform
+            Your latest carbon offset transactions
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[
-              {
-                action: "Carbon Credit Purchase",
-                user: "EcoTech Corporation",
-                amount: "500 credits",
-                time: "2 hours ago",
-                type: "purchase",
-              },
-              {
-                action: "Emission Report Submitted",
-                user: "GreenManufacturing Ltd",
-                amount: "Monthly Report",
-                time: "4 hours ago",
-                type: "report",
-              },
-              {
-                action: "New User Registration",
-                user: "Sustainable Solutions Inc",
-                amount: "Premium Plan",
-                time: "6 hours ago",
-                type: "registration",
-              },
-              {
-                action: "Offset Project Completed",
-                user: "Amazon Rainforest Initiative",
-                amount: "1,200 tons CO₂",
-                time: "1 day ago",
-                type: "offset",
-              },
-            ].map((activity, index) => (
+            {myOffsets.slice(0, 5).map((offset, index) => (
               <div
-                key={index}
+                key={offset.transaction_id || index}
                 className="flex items-center justify-between py-3 border-b last:border-b-0"
               >
                 <div className="flex items-center space-x-3">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      activity.type === "purchase"
-                        ? "bg-blue-500"
-                        : activity.type === "report"
-                        ? "bg-yellow-500"
-                        : activity.type === "registration"
-                        ? "bg-green-500"
-                        : "bg-carbon-500"
-                    }`}
-                  />
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
                   <div>
-                    <div className="font-medium">{activity.action}</div>
+                    <div className="font-medium">
+                      {offset.projects?.[0]?.project_name || "Carbon Offset"}
+                    </div>
                     <div className="text-sm text-muted-foreground">
-                      {activity.user}
+                      {offset.total_tons?.toFixed(2)} tons • {offset.currency}{" "}
+                      {offset.total_cost?.toFixed(2)}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="font-medium">{activity.amount}</div>
                   <div className="text-sm text-muted-foreground">
-                    {activity.time}
+                    {offset.date
+                      ? new Date(offset.date).toLocaleDateString()
+                      : "Unknown date"}
                   </div>
+                  <Badge
+                    variant={
+                      offset.status === "completed" ? "default" : "secondary"
+                    }
+                    className="mt-1"
+                  >
+                    {offset.status}
+                  </Badge>
                 </div>
               </div>
             ))}
+            {myOffsets.length === 0 && (
+              <div className="text-center py-6 text-muted-foreground">
+                No offset transactions yet
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

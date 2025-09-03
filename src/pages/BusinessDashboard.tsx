@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Card,
   CardContent,
@@ -32,17 +33,8 @@ import {
 } from "recharts";
 import { useBillingStore } from "@/store/billingStore";
 import { useMySubscriptionStore } from "@/store/mySubscription";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useOffsetStore } from "@/store/offsetStore";
-
-const emissionData = [
-  { month: "Jan", emissions: 2400, offset: 2000 },
-  { month: "Feb", emissions: 2100, offset: 2200 },
-  { month: "Mar", emissions: 2300, offset: 2400 },
-  { month: "Apr", emissions: 2000, offset: 2300 },
-  { month: "May", emissions: 1900, offset: 2500 },
-  { month: "Jun", emissions: 1800, offset: 2600 },
-];
 
 const apiGrowthData = [
   { month: "Jan", calls: 1200 },
@@ -70,6 +62,85 @@ export default function BusinessDashboard() {
     }
   }, [accessToken, user, fetchUserProfile, fetchMyOffsets]);
 
+  // offset data for chart
+  const offsetData = useMemo(() => {
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const currentYear = new Date().getFullYear();
+
+    // Initialize data for all months with zeros
+    const monthlyData = monthNames.map((month, index) => ({
+      month: `${month} ${currentYear.toString().slice(-2)}`,
+      offset: 0,
+      count: 0,
+      monthIndex: index,
+    }));
+
+    // Process each offset transaction
+    myOffsets.forEach((offset) => {
+      if (offset.date) {
+        const date = new Date(offset.date);
+        const monthIndex = date.getMonth();
+        const year = date.getFullYear();
+
+        // Only process transactions from current year
+        if (year === currentYear) {
+          monthlyData[monthIndex].offset += offset.total_tons || 0;
+          monthlyData[monthIndex].count += 1;
+        }
+      }
+    });
+
+    return monthlyData;
+  }, [myOffsets]);
+
+  // tooltip component for the offset chart
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      return (
+        <div className="bg-white p-3 border rounded-lg shadow-lg">
+          <p className="text-sm font-medium">{`${label}`}</p>
+          <p className="text-sm text-green-600">
+            {`Offsets: ${data.offset.toFixed(2)} tons`}
+          </p>
+          <p className="text-xs text-gray-500">
+            {`${data.count} transaction${data.count !== 1 ? "s" : ""}`}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // total offsets
+  const totalOffsets = useMemo(() => {
+    return myOffsets.reduce(
+      (total, offset) => total + (offset.total_tons || 0),
+      0
+    );
+  }, [myOffsets]);
+
+  // total API calls
+  const totalApiCalls = user?.profile?.api_requests_made || 0;
+
+  // total CO₂
+  const totalCO2 = 3.2; // Placeholder (mock)
+
+  // Format date for display
   const currentDate = new Date();
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     year: "numeric",
@@ -77,41 +148,10 @@ export default function BusinessDashboard() {
     day: "numeric",
   });
 
-  // recent payment
+  // last payment
   const lastPayment = payments.length > 0 ? payments[0] : null;
 
-  // next billing date
-  const getNextBillingDate = (paymentDate: string, frequency: string) => {
-    if (!paymentDate) return null;
-
-    const date = new Date(paymentDate);
-    if (frequency === "monthly") {
-      date.setMonth(date.getMonth() + 1);
-    } else if (frequency === "yearly") {
-      date.setFullYear(date.getFullYear() + 1);
-    }
-    return date;
-  };
-
-  // Formatted date for display
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "No payments yet";
-    const options: Intl.DateTimeFormatOptions = {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    };
-    return new Date(dateString).toLocaleDateString("en-US", options);
-  };
-
-  const nextBillingDate = lastPayment
-    ? getNextBillingDate(
-        lastPayment.payment_date,
-        lastPayment.subscription_details?.payment_frequency
-      )
-    : null;
-
-  // Show loading state while fetching user
+  // loading state while fetching user
   if (loading && !user) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -173,7 +213,7 @@ export default function BusinessDashboard() {
         </div>
       </div>
 
-      {/* Key Metrics - COLORED TEXT VERSION */}
+      {/* Key Metrics */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -184,26 +224,24 @@ export default function BusinessDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">
-              {user?.profile?.api_requests_made || 0}
+              {totalApiCalls}
             </div>
             <div className="flex flex-col gap-2 text-xs text-muted-foreground">
               {user?.profile?.total_requests_limit ? (
                 <>
                   <Progress
                     value={
-                      user?.profile?.api_requests_made &&
-                      user?.profile?.total_requests_limit
-                        ? (Number(user.profile.api_requests_made) /
+                      user?.profile?.total_requests_limit && totalApiCalls
+                        ? (Number(totalApiCalls) /
                             Number(user.profile.total_requests_limit)) *
                           100
                         : 0
                     }
                     className="h-2 mr-2 w-full"
                   />
-                  {user?.profile?.api_requests_made &&
-                  user?.profile?.total_requests_limit
+                  {user?.profile?.total_requests_limit && totalApiCalls
                     ? Math.round(
-                        (Number(user.profile.api_requests_made) /
+                        (Number(totalApiCalls) /
                           Number(user.profile.total_requests_limit)) *
                           100
                       )
@@ -225,7 +263,9 @@ export default function BusinessDashboard() {
             <Leaf className="h-4 w-4 text-orange-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-orange-600">3.2 tons</div>
+            <div className="text-2xl font-bold text-orange-600">
+              {totalCO2.toFixed(1)} tons
+            </div>
             <div className="flex items-center text-xs text-muted-foreground">
               <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
               +15% from last month
@@ -242,10 +282,7 @@ export default function BusinessDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {myOffsets
-                .reduce((sum, offset) => sum + offset.total_tons, 0)
-                .toFixed(2)}{" "}
-              tons
+              {totalOffsets.toFixed(2)} tons
             </div>
             <div className="flex items-center text-xs text-muted-foreground">
               <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
@@ -259,7 +296,7 @@ export default function BusinessDashboard() {
             <CardTitle className="text-sm font-medium">
               {lastPayment ? "Last Payment" : "Payment Information"}
             </CardTitle>
-            <Calendar className="h-4 w-4 text-purple-600" />
+            <CreditCard className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
             {lastPayment ? (
@@ -267,12 +304,9 @@ export default function BusinessDashboard() {
                 <div className="text-2xl font-bold text-purple-600">
                   ${lastPayment.amount}
                 </div>
-                {nextBillingDate && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Possible next billing:{" "}
-                    {formatDate(nextBillingDate.toISOString())}
-                  </div>
-                )}
+                <div className="text-xs text-muted-foreground mt-1">
+                  {new Date(lastPayment.payment_date).toLocaleDateString()}
+                </div>
               </>
             ) : (
               <div className="text-2xl font-bold text-purple-600">
@@ -285,37 +319,31 @@ export default function BusinessDashboard() {
 
       {/* Charts Section */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Original Emissions vs Offset Graph */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-carbon-600" />
-              Emissions vs Offsets
+              <BarChart3 className="h-5 w-5 text-green-600" />
+              Monthly Carbon Offsets
             </CardTitle>
             <CardDescription>
-              Monthly carbon emissions and offset comparison
+              Carbon offsets purchased by month (metric tons)
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={emissionData}>
+              <LineChart data={offsetData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="emissions"
-                  stroke="#f97316"
-                  strokeWidth={2}
-                  name="Emissions (tons)"
-                />
+                <Tooltip content={<CustomTooltip />} />
                 <Line
                   type="monotone"
                   dataKey="offset"
                   stroke="#22c55e"
-                  strokeWidth={2}
+                  strokeWidth={3}
                   name="Offsets (tons)"
+                  dot={{ fill: "#22c55e", strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: "#22c55e", strokeWidth: 2 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -345,72 +373,55 @@ export default function BusinessDashboard() {
         </Card>
       </div>
 
-      {/* Recent Activities (Original Style) */}
+      {/* Recent Activities */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Activities</CardTitle>
+          <CardTitle>Recent Offset Activities</CardTitle>
           <CardDescription>
-            Latest API calls and carbon calculations
+            Your latest carbon offset transactions
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {[
-              {
-                action: "Flight Emission Calculation",
-                type: "calculation",
-                details: "DUB → JFK (3,250 kg CO₂)",
-                time: "2 hours ago",
-              },
-              {
-                action: "API Limit Warning",
-                type: "alert",
-                details: "85% of monthly limit used",
-                time: "4 hours ago",
-              },
-              {
-                action: "Carbon Offset Purchase",
-                type: "offset",
-                details: "Verified rainforest project (1.2 tons)",
-                time: "1 day ago",
-              },
-              {
-                action: "New API Key Generated",
-                type: "security",
-                details: "For mobile application",
-                time: "2 days ago",
-              },
-            ].map((activity, index) => (
+            {myOffsets.slice(0, 5).map((offset, index) => (
               <div
-                key={index}
+                key={offset.transaction_id || index}
                 className="flex items-center justify-between py-3 border-b last:border-b-0"
               >
                 <div className="flex items-center space-x-3">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      activity.type === "calculation"
-                        ? "bg-orange-500"
-                        : activity.type === "alert"
-                        ? "bg-yellow-500"
-                        : activity.type === "offset"
-                        ? "bg-green-500"
-                        : "bg-blue-500"
-                    }`}
-                  />
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
                   <div>
-                    <div className="font-medium">{activity.action}</div>
+                    <div className="font-medium">
+                      {offset.projects?.[0]?.project_name || "Carbon Offset"}
+                    </div>
                     <div className="text-sm text-muted-foreground">
-                      {activity.details}
+                      {offset.total_tons?.toFixed(2)} tons • {offset.currency}{" "}
+                      {offset.total_cost?.toFixed(2)}
                     </div>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-muted-foreground">
-                    {activity.time}
+                    {offset.date
+                      ? new Date(offset.date).toLocaleDateString()
+                      : "Unknown date"}
                   </div>
+                  <Badge
+                    variant={
+                      offset.status === "completed" ? "default" : "secondary"
+                    }
+                    className="mt-1"
+                  >
+                    {offset.status}
+                  </Badge>
                 </div>
               </div>
             ))}
+            {myOffsets.length === 0 && (
+              <div className="text-center py-6 text-muted-foreground">
+                No offset transactions yet
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
