@@ -43,7 +43,7 @@ import { useEffect, useMemo } from "react";
 import { useOffsetStore } from "@/store/offsetStore";
 
 export default function AdminDashboard() {
-  const { apiUsers, fetchUsers, loading } = useUsersStore();
+  const { apiUsers, fetchUsers, loading, totalCount } = useUsersStore();
   const { user, fetchUserProfile } = useUserStore();
   const { accessToken } = useAuthStore();
   const role = useAuthStore((state) => state.user?.role);
@@ -354,7 +354,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-carbon-700">
-              {apiUsers.length}
+              {totalCount.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">
               {apiUsers.filter((user) => user.is_active).length} active users

@@ -52,18 +52,18 @@ interface User {
 
 export default function Users() {
   const accessToken = useAuthStore((state) => state.accessToken);
-  const { 
-    apiUsers, 
-    loading, 
+  const {
+    apiUsers,
+    loading,
     totalCount,
-    fetchUsers, 
-    createUser, 
-    updateUser, 
-    updateUserStatus 
+    fetchUsers,
+    createUser,
+    updateUser,
+    updateUserStatus,
   } = useUsersStore();
-  
+
   const { filters, updateFilters } = useUserFilters();
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -102,23 +102,33 @@ export default function Users() {
     setCurrentPage(1);
   }, [filters]);
 
-  const availablePlans = useMemo(() => [
-    ...Array.from(
-      new Set(
-        apiUsers
-          .map((user) => user.subscription?.plan_name)
-          .filter(Boolean) as string[]
-      )
-    ),
-  ], [apiUsers]);
+  const availablePlans = useMemo(
+    () => [
+      ...Array.from(
+        new Set(
+          apiUsers
+            .map((user) => user.subscription?.plan_name)
+            .filter(Boolean) as string[]
+        )
+      ),
+    ],
+    [apiUsers]
+  );
 
   // Statistics calculations
-  const totalEmissions = mockUsers.reduce((sum, user) => sum + user.emissions, 0);
-  const totalOffset = offsetHistory.reduce((sum, offset) => sum + offset.carbon_emission_metric_tons, 0);
+  const totalEmissions = mockUsers.reduce(
+    (sum, user) => sum + user.emissions,
+    0
+  );
+  const totalOffset = offsetHistory.reduce(
+    (sum, offset) => sum + offset.carbon_emission_metric_tons,
+    0
+  );
   const activeUsers = apiUsers.filter((user) => user.is_active).length;
 
   // Pagination calculations
-  const startIndex = totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const startIndex =
+    totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
   const endIndex = Math.min(currentPage * itemsPerPage, totalCount);
   const totalPages = Math.ceil(totalCount / itemsPerPage);
 
@@ -135,7 +145,7 @@ export default function Users() {
 
     setIsCreating(true);
     setCreateError(null);
-    
+
     try {
       await createUser(accessToken, userData);
     } catch (error) {
@@ -159,7 +169,7 @@ export default function Users() {
 
     setIsEditing(true);
     setEditError(null);
-    
+
     try {
       await updateUser(accessToken, selectedUser.id, userData);
       setIsEditDialogOpen(false);
@@ -176,7 +186,7 @@ export default function Users() {
 
   const handleDeleteUser = async (userId: number) => {
     setIsDeletingUser(userId);
-    
+
     try {
       await updateUserStatus(accessToken, userId, false);
     } catch (error) {
@@ -207,7 +217,7 @@ export default function Users() {
             Manage user accounts, permissions, and carbon tracking data
           </p>
         </div>
-        
+
         <CreateUserDialog
           onCreateUser={handleCreateUser}
           isCreating={isCreating}
@@ -228,10 +238,11 @@ export default function Users() {
         <CardHeader className="pb-6">
           <CardTitle className="text-xl">User Directory</CardTitle>
           <CardDescription className="text-base">
-            Manage user accounts and track their carbon impact with advanced filtering
+            Manage user accounts and track their carbon impact with advanced
+            filtering
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {/* Filters */}
           <UserFilters

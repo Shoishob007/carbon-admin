@@ -127,7 +127,7 @@ const baseMenuItems: MenuItem[] = [
     hasSubItems: false,
   },
   {
-    title: "My Offset Projects",
+    title: "My Offset History",
     url: "/myOffsetProjects",
     icon: Globe,
     roles: ["business", "individual"],

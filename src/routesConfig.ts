@@ -32,12 +32,11 @@ export interface AppRoute {
 }
 
 export const routes: AppRoute[] = [
-  {
-    path: "/",
-    component: DashboardPage,
-    layout: "dashboard",
-    roles: ["super_admin", "business", "individual"],
-  },
+  // Public routes (no authentication required)
+  { path: "/login", component: Login },
+  { path: "/register", component: Register },
+  
+  // Dashboard routes (authentication required)
   {
     path: "/api-docs",
     component: ApiDocs,
@@ -110,7 +109,6 @@ export const routes: AppRoute[] = [
     layout: "dashboard",
     roles: ["super_admin", "business", "individual"],
   },
-  // { path: "/profile", component: Settings, layout: "dashboard", roles: ["super_admin", "business", "individual"] },
   {
     path: "/offset-projects",
     component: OffsetProjects,
@@ -153,8 +151,7 @@ export const routes: AppRoute[] = [
     layout: "dashboard",
     roles: ["super_admin", "business", "individual"],
   },
-  { path: "/login", component: Login },
-  { path: "/register", component: Register },
 
+  // Catch-all route (should be last)
   { path: "*", component: NotFound },
 ];

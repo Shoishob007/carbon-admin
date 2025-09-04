@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -18,11 +19,13 @@ interface RegisterData {
 }
 
 interface AuthState {
+  [x: string]: any;
   user: UserProfile | null;
   accessToken: string | null;
   refreshToken: string | null;
   profile_update: boolean;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   changePassword: (
@@ -30,7 +33,9 @@ interface AuthState {
     newPassword: string,
     accessToken: string
   ) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  initializeAuth: () => Promise<void>;
+  verifyToken: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -41,7 +46,87 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       isAuthenticated: false,
       profile_update: false,
+      isLoading: false,
+
+      // New method to verify if the stored token is still valid
+      verifyToken: async (): Promise<boolean> => {
+        const { accessToken } = get();
+        if (!accessToken) return false;
+
+        try {
+          const response = await fetch(
+            `${import.meta.env.VITE_API_URL}/api/users/profile/`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          return response.ok;
+        } catch (error) {
+          console.error("Token verification failed:", error);
+          return false;
+        }
+      },
+
+      // New initialization method
+      initializeAuth: async () => {
+        set({ isLoading: true });
+        
+        try {
+          const { user, accessToken, refreshToken } = get();
+          
+          // If we have stored auth data, verify it
+          if (user && accessToken) {
+            const isTokenValid = await get().verifyToken();
+            
+            if (isTokenValid) {
+              // Token is valid, user is authenticated
+              set({
+                user,
+                accessToken,
+                refreshToken,
+                isAuthenticated: true,
+                isLoading: false,
+              });
+            } else {
+              // Token is invalid, clear auth data
+              set({
+                user: null,
+                accessToken: null,
+                refreshToken: null,
+                isAuthenticated: false,
+                isLoading: false,
+              });
+            }
+          } else {
+            // No stored auth data
+            set({
+              user: null,
+              accessToken: null,
+              refreshToken: null,
+              isAuthenticated: false,
+              isLoading: false,
+            });
+          }
+        } catch (error) {
+          console.error("Auth initialization failed:", error);
+          // Clear auth data on error
+          set({
+            user: null,
+            accessToken: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            isLoading: false,
+          });
+        }
+      },
+
       login: async (email: string, password: string) => {
+        set({ isLoading: true });
         try {
           const resp = await fetch(
             `${import.meta.env.VITE_API_URL}/api/users/login/`,
@@ -55,7 +140,6 @@ export const useAuthStore = create<AuthState>()(
           if (!resp.ok) throw new Error("Invalid credentials");
 
           const data = await resp.json();
-          //   console.log("User i got i response: ", data)
 
           set({
             user: {
@@ -71,6 +155,7 @@ export const useAuthStore = create<AuthState>()(
             accessToken: data.token.access,
             refreshToken: data.token.refresh,
             isAuthenticated: true,
+            isLoading: false,
           });
         } catch (err) {
           set({
@@ -79,11 +164,14 @@ export const useAuthStore = create<AuthState>()(
             accessToken: null,
             refreshToken: null,
             isAuthenticated: false,
+            isLoading: false,
           });
           throw err;
         }
       },
+
       register: async (userData: RegisterData) => {
+        set({ isLoading: true });
         try {
           const resp = await fetch(
             `${import.meta.env.VITE_API_URL}/api/users/register/`,
@@ -101,25 +189,11 @@ export const useAuthStore = create<AuthState>()(
 
           const data = await resp.json();
           console.log("Registration Response Data:", data);
-
-          //   if (data.user && data.token?.access && data.token?.refresh) {
-          //     set({
-          //       user: {
-          //         email: data.user.email,
-          //         name: data.user.name,
-          //         role: data.user.role,
-          //         id: data.user.id ?? data.user.user_id ?? data.user.profile?.id ?? 0,
-          //         profile_image: data.user.profile_image,
-          //         ...data.user,
-          //       },
-          //       accessToken: data.token.access,
-          //       refreshToken: data.token.refresh,
-          //       isAuthenticated: true,
-          //     });
-          //     return;
-          //   }
+          
+          set({ isLoading: false });
           return;
         } catch (err) {
+          set({ isLoading: false });
           const errorMessage =
             err instanceof Error
               ? err.message
@@ -128,6 +202,7 @@ export const useAuthStore = create<AuthState>()(
           throw new Error(errorMessage);
         }
       },
+
       changePassword: async (userId: number, newPassword: string, accessToken: string) => {
         try {
           console.log("Attempting to change password for user:", userId);
@@ -163,7 +238,6 @@ export const useAuthStore = create<AuthState>()(
             throw new Error(errorMessage);
           }
 
-          // Success
           try {
             const data = await response.json();
             console.log("Success response data:", data);
@@ -190,17 +264,15 @@ export const useAuthStore = create<AuthState>()(
             });
           }
         } catch (err) {
-          const errorMessage =
-            err instanceof Error
-              ? err.message
-              : "Logout failed. Please try again.";
-          throw new Error(errorMessage);
+          console.error("Logout API call failed:", err);
+          // Don't throw error, still proceed with local logout
         } finally {
           set({
             user: null,
             accessToken: null,
             refreshToken: null,
             isAuthenticated: false,
+            isLoading: false,
           });
         }
       },

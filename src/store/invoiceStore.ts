@@ -15,6 +15,8 @@ interface InvoiceStore {
     amount: string,
     transactionId: string,
     notes: string,
+      payment_file: string,
+
     accessToken: string
   ) => Promise<void>;
   updateInvoiceInfo: (
@@ -126,72 +128,68 @@ export const useInvoiceStore = create<InvoiceStore>((set) => ({
 
   clearSelectedInvoice: () => set({ selectedInvoice: null }),
 
-  updateInvoicePayment: async (
-    invoiceId: string | number,
-    amount: string | number,
-    transactionId: string,
-    notes: string,
-    accessToken: string
-  ) => {
-    try {
-      set({ loading: true, error: null });
+updateInvoicePayment: async (
+  invoiceId: string | number,
+  amount: string | number,
+  transactionId: string,
+  notes: string,
+  payment_file: string,
+  accessToken: string
+) => {
+  try {
+    set({ loading: true, error: null });
 
-      const paymentAmount =
-        typeof amount === "number" ? amount.toFixed(2) : amount;
+    const paymentAmount =
+      typeof amount === "number" ? amount.toFixed(2) : amount;
 
-      console.log("Sending PATCH request with:", {
-        payment: {
-          amount: paymentAmount,
-          transaction_id: transactionId,
-          notes,
+    const payload = {
+      payment: {
+        amount: paymentAmount,
+        transaction_id: transactionId,
+        notes,
+        payment_file,
+      },
+    };
+
+    console.log("📤 Sending PATCH request with:", JSON.stringify(payload, null, 2));
+
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/subscription/admin/invoices/${invoiceId}/`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
-      });
-
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL
-        }/api/subscription/admin/invoices/${invoiceId}/`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            payment: {
-              amount: paymentAmount,
-              transaction_id: transactionId,
-              notes,
-            },
-          }),
-        }
-      );
-
-      console.log("Response status:", response.status);
-
-      if (!response.ok) {
-        let errorMessage = "Failed to add invoice payment";
-        try {
-          const errorData = await response.json();
-          if (errorData?.message) errorMessage = errorData.message;
-        } catch {
-          // ignoring parse errors
-        }
-        throw new Error(errorMessage);
+        body: JSON.stringify(payload),
       }
+    );
 
-      await useInvoiceStore
-        .getState()
-        .fetchInvoices(accessToken, "super_admin");
-      set({ loading: false });
-    } catch (error: any) {
-      set({
-        error: error.message || "Failed to add invoice payment",
-        loading: false,
-      });
-      throw error;
+    console.log("📥 Response status:", response.status);
+
+    if (!response.ok) {
+      let errorMessage = "Failed to add invoice payment";
+      try {
+        const errorData = await response.json();
+        console.error("❌ Error response:", errorData);
+        if (errorData?.message) errorMessage = errorData.message;
+      } catch {
+        // ignore parse errors
+      }
+      throw new Error(errorMessage);
     }
-  },
+
+    await useInvoiceStore.getState().fetchInvoices(accessToken, "super_admin");
+    set({ loading: false });
+  } catch (error: any) {
+    set({
+      error: error.message || "Failed to add invoice payment",
+      loading: false,
+    });
+    throw error;
+  }
+},
+
 
   updateInvoiceInfo: async (
     invoiceId: number,

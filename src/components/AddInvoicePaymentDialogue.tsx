@@ -18,6 +18,7 @@ interface AddInvoicePaymentDialogProps {
     amount: string;
     transaction_id: string;
     notes: string;
+    payment_file: string;
   }) => Promise<void>;
   isSubmitting: boolean;
   invoiceNumber?: string;
@@ -34,6 +35,7 @@ export default function AddInvoicePaymentDialog({
     amount: "",
     transaction_id: "",
     notes: "",
+    payment_file: "",
   });
 
   const handleSubmit = async () => {
@@ -42,6 +44,7 @@ export default function AddInvoicePaymentDialog({
       amount: "",
       transaction_id: "",
       notes: "",
+      payment_file: "",
     });
   };
 
@@ -50,6 +53,7 @@ export default function AddInvoicePaymentDialog({
       amount: "",
       transaction_id: "",
       notes: "",
+      payment_file: "",
     });
     onClose();
   };
@@ -60,6 +64,7 @@ export default function AddInvoicePaymentDialog({
         amount: "",
         transaction_id: "",
         notes: "",
+        payment_file: "",
       });
     }
   }, [isOpen]);
@@ -115,6 +120,20 @@ export default function AddInvoicePaymentDialog({
                 })
               }
               placeholder="Enter payment notes"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="invoice-payment-file">Payment File</Label>
+            <Input
+              id="invoice-payment-file"
+              value={newInvoicePayment.payment_file}
+              onChange={(e) =>
+                setNewInvoicePayment({
+                  ...newInvoicePayment,
+                  payment_file: e.target.value,
+                })
+              }
+              placeholder="Enter file reference (string)"
             />
           </div>
         </div>
