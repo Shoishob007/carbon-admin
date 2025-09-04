@@ -64,6 +64,8 @@ export default function Pricing() {
   const { subscription, fetchMySubscription, unsubscribeFromPlan } =
     useMySubscriptionStore();
 
+    console.log("My subscription :: ", subscription)
+
   const {
     createCheckoutSession,
     redirectToCheckout,
@@ -128,44 +130,47 @@ export default function Pricing() {
     (a, b) => a.monthly_price - b.monthly_price
   );
 
-  const handleStripeCheckout = async (planId: number) => {
-    if (!accessToken) {
-      toast.error("You must be logged in to subscribe.");
-      return;
-    }
-    if (role == "super_admin") {
-      toast.error("Super Admin can't subscribe to own plans!");
-      return;
-    }
+const handleStripeCheckout = async (planId: number) => {
+  if (!accessToken) {
+    toast.error("You must be logged in to subscribe.");
+    return;
+  }
+  if (role === "super_admin") {
+    toast.error("Super Admin can't subscribe to own plans!");
+    return;
+  }
 
-    try {
-      setProcessingPayment(true);
-      clearPaymentError();
+  // 🔹 Check for postpaid
+  if (subscription?.payment_type === "postpaid") {
+    toast.info("Your plan is postpaid. Please contact the admin to complete payment.");
+    return;
+  }
 
-      // Create Stripe checkout session
-      const checkoutData = await createCheckoutSession(
-        accessToken,
-        planId,
-        billing
-      );
+  try {
+    setProcessingPayment(true);
+    clearPaymentError();
 
-      // Redirect to Stripe checkout
-      if (checkoutData.url) {
-        redirectToCheckout(checkoutData.url);
-        toast.success("Redirecting to secure payment...");
-      }
-    } catch (error) {
-      console.error("Stripe checkout failed:", error);
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Failed to initiate payment. Please try again."
-      );
-    } finally {
-      setProcessingPayment(false);
-      setUpdatingPlanId(null);
+    // Create Stripe checkout session
+    const checkoutData = await createCheckoutSession(accessToken, planId, billing);
+
+    // Redirect to Stripe checkout
+    if (checkoutData.url) {
+      redirectToCheckout(checkoutData.url);
+      toast.success("Redirecting to secure payment...");
     }
-  };
+  } catch (error) {
+    console.error("Stripe checkout failed:", error);
+    toast.error(
+      error instanceof Error
+        ? error.message
+        : "Failed to initiate payment. Please try again."
+    );
+  } finally {
+    setProcessingPayment(false);
+    setUpdatingPlanId(null);
+  }
+};
+
 
   const handleUnsubscribe = async () => {
     if (!accessToken) {

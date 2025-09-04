@@ -34,6 +34,7 @@ export interface MySubscription {
   end_date: string;
   status: string;
   payment_frequency: string;
+  payment_type: string;
   created_at: string;
   last_renewed_at: string | null;
   cancel_at_period_end: boolean;
