@@ -140,7 +140,7 @@ const handleStripeCheckout = async (planId: number) => {
     return;
   }
 
-  // 🔹 Check for postpaid
+  // postpaid check
   if (subscription?.payment_type === "postpaid") {
     toast.info("Your plan is postpaid. Please contact the admin to complete payment.");
     return;

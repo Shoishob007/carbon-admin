@@ -54,8 +54,10 @@ export default function Users() {
   const accessToken = useAuthStore((state) => state.accessToken);
   const {
     apiUsers,
+    filteredUsers,
     loading,
     totalCount,
+    filteredCount,
     fetchUsers,
     createUser,
     updateUser,
@@ -83,24 +85,31 @@ export default function Users() {
 
   const { offsetHistory, fetchOffsetHistory } = useOffsetStore();
 
-  // Fetch users when filters, pagination, or auth changes
+  // users when filters or auth changes
   useEffect(() => {
     if (accessToken) {
-      fetchUsers(accessToken, filters, currentPage, itemsPerPage);
+      fetchUsers(accessToken, filters);
     }
-  }, [accessToken, filters, currentPage, itemsPerPage, fetchUsers]);
+  }, [accessToken, filters, fetchUsers]);
 
-  // Fetch offset history on mount
+  // offset history on mount
   useEffect(() => {
     if (accessToken) {
       fetchOffsetHistory(accessToken);
     }
   }, [accessToken, fetchOffsetHistory]);
 
-  // Reset pagination when filters change
+  // reseting pagination
   useEffect(() => {
     setCurrentPage(1);
   }, [filters]);
+
+  // paginated users
+  const paginatedUsers = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredUsers.slice(startIndex, endIndex);
+  }, [filteredUsers, currentPage, itemsPerPage]);
 
   const availablePlans = useMemo(
     () => [
@@ -115,22 +124,26 @@ export default function Users() {
     [apiUsers]
   );
 
-  // Statistics calculations
-  const totalEmissions = mockUsers.reduce(
-    (sum, user) => sum + user.emissions,
-    0
-  );
+  // calculating statistics
+  const businessUsers = useMemo(() => {
+    return apiUsers.filter((user) => user.role === "business").length;
+  }, [apiUsers]);
+
+  const individualUsers = useMemo(() => {
+    return apiUsers.filter((user) => user.role === "individual").length;
+  }, [apiUsers]);
+
   const totalOffset = offsetHistory.reduce(
     (sum, offset) => sum + offset.carbon_emission_metric_tons,
     0
   );
   const activeUsers = apiUsers.filter((user) => user.is_active).length;
 
-  // Pagination calculations
+  // pagination for filtered data
   const startIndex =
-    totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endIndex = Math.min(currentPage * itemsPerPage, totalCount);
-  const totalPages = Math.ceil(totalCount / itemsPerPage);
+    filteredCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredCount);
+  const totalPages = Math.ceil(filteredCount / itemsPerPage);
 
   const handleCreateUser = async (userData: {
     email: string;
@@ -229,7 +242,8 @@ export default function Users() {
       <UserStatistics
         totalUsers={totalCount}
         activeUsers={activeUsers}
-        totalEmissions={totalEmissions}
+        businessUsers={businessUsers}
+        individualUsers={individualUsers}
         totalOffset={totalOffset}
       />
 
@@ -240,6 +254,11 @@ export default function Users() {
           <CardDescription className="text-base">
             Manage user accounts and track their carbon impact with advanced
             filtering
+            {filteredCount !== totalCount && (
+              <span className="text-gray-600 text-sm font-medium ml-2">
+                ({filteredCount} of {totalCount} users match filters)
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
 
@@ -253,7 +272,7 @@ export default function Users() {
 
           {/* Table */}
           <UserTable
-            users={apiUsers}
+            users={paginatedUsers}
             loading={loading}
             onEditUser={handleEditUser}
             onDeleteUser={handleDeleteUser}
@@ -268,7 +287,7 @@ export default function Users() {
               onPageChange={handlePageChange}
               onItemsPerPageChange={handleItemsPerPageChange}
               itemsPerPage={itemsPerPage}
-              totalItems={totalCount}
+              totalItems={filteredCount}
               startIndex={startIndex}
               endIndex={endIndex}
               showItemsPerPage={true}

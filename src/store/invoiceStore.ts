@@ -10,15 +10,14 @@ interface InvoiceStore {
   fetchInvoices: (accessToken: string, role: string) => Promise<void>;
   fetchInvoiceById: (invoiceId: number, accessToken: string) => Promise<void>;
   clearSelectedInvoice: () => void;
-  updateInvoicePayment: (
-    invoiceId: number,
-    amount: string,
-    transactionId: string,
-    notes: string,
-      payment_file: string,
-
-    accessToken: string
-  ) => Promise<void>;
+updateInvoicePayment: (
+  invoiceId: number,
+  amount: string,
+  transactionId: string,
+  notes: string,
+  payment_file: File | null,
+  accessToken: string
+) => Promise<void>;
   updateInvoiceInfo: (
     invoiceId: number,
     invoiceData: {
@@ -133,35 +132,37 @@ updateInvoicePayment: async (
   amount: string | number,
   transactionId: string,
   notes: string,
-  payment_file: string,
+  payment_file: File | null,
   accessToken: string
 ) => {
   try {
     set({ loading: true, error: null });
 
-    const paymentAmount =
-      typeof amount === "number" ? amount.toFixed(2) : amount;
+    const paymentAmount = typeof amount === "number" ? amount.toFixed(2) : amount;
 
-    const payload = {
-      payment: {
-        amount: paymentAmount,
-        transaction_id: transactionId,
-        notes,
-        payment_file,
-      },
-    };
+    // Create FormData instead of JSON
+    const formData = new FormData();
+    formData.append("amount", paymentAmount);
+    formData.append("transaction_id", transactionId);
+    
+    if (notes) {
+      formData.append("notes", notes);
+    }
+    
+    if (payment_file) {
+      formData.append("payment_file", payment_file);
+    }
 
-    console.log("📤 Sending PATCH request with:", JSON.stringify(payload, null, 2));
+    console.log("📤 Sending PATCH request with FormData");
 
     const response = await fetch(
       `${import.meta.env.VITE_API_URL}/api/subscription/admin/invoices/${invoiceId}/`,
       {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify(payload),
+        body: formData,
       }
     );
 
@@ -173,6 +174,7 @@ updateInvoicePayment: async (
         const errorData = await response.json();
         console.error("❌ Error response:", errorData);
         if (errorData?.message) errorMessage = errorData.message;
+        else if (errorData?.detail) errorMessage = errorData.detail;
       } catch {
         // ignore parse errors
       }

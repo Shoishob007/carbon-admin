@@ -163,15 +163,15 @@ export default function Billing() {
     amount: string;
     transaction_id: string;
     notes: string;
-    payment_file: string;
+    payment_file: File | null;
   }) => {
     if (!accessToken || role !== "super_admin" || !currentInvoiceId) return;
 
     setIsSubmitting(true);
     try {
-      console.log("➡️ Adding invoice payment:", payment);
+      console.log("Adding invoice payment:", payment);
 
-      await updateInvoicePayment(
+      const res = await updateInvoicePayment(
         currentInvoiceId,
         payment.amount,
         payment.transaction_id,
@@ -179,11 +179,12 @@ export default function Billing() {
         payment.payment_file,
         accessToken
       );
+      // console.log("Response :: ", res)
 
       setIsAddInvoicePaymentDialogOpen(false);
       setCurrentInvoiceId(null);
     } catch (error) {
-      console.error("❌ Error adding invoice payment:", error);
+      console.error("Error adding invoice payment:", error);
     } finally {
       setIsSubmitting(false);
     }

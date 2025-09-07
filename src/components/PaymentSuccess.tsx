@@ -56,32 +56,32 @@ export default function PaymentSuccess() {
       return;
     }
 
-    const verifyPayment = async () => {
-      try {
-        clearError();
-        console.log("Verifying payment for sessionId:", sessionId);
-        const verificationPaymentResponse = await verifyPaymentCompletion(
-          sessionId
-        );
-        console.log("Verification Response:", verificationPaymentResponse);
+    // const verifyPayment = async () => {
+    //   try {
+    //     clearError();
+    //     console.log("Verifying payment for sessionId:", sessionId);
+    //     const verificationPaymentResponse = await verifyPaymentCompletion(
+    //       sessionId
+    //     );
+    //     console.log("Verification Response:", verificationPaymentResponse);
 
-        await fetchMySubscription(accessToken);
+    //     await fetchMySubscription(accessToken);
 
-        toast.success(
-          verificationPaymentResponse?.message ||
-            "Payment verified successfully!"
-        );
-      } catch (err) {
-        console.error("Payment verification failed:", err);
-        toast.error("Failed to verify payment. Please contact support.");
-      }
-    };
+    //     toast.success(
+    //       verificationPaymentResponse?.message ||
+    //         "Payment verified successfully!"
+    //     );
+    //   } catch (err) {
+    //     console.error("Payment verification failed:", err);
+    //     toast.error("Failed to verify payment. Please contact support.");
+    //   }
+    // };
 
-    verifyPayment();
+    // verifyPayment();
   }, [
     sessionId,
     accessToken,
-    verifyPaymentCompletion,
+    // verifyPaymentCompletion,
     fetchMySubscription,
     navigate,
     loading,

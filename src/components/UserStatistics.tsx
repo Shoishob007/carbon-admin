@@ -1,17 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users as UsersIcon, Building, Coins } from "lucide-react";
+import { Users as UsersIcon, Building2, User, Coins } from "lucide-react";
 
 interface UserStatisticsProps {
   totalUsers: number;
   activeUsers: number;
-  totalEmissions: number;
+  businessUsers: number; 
+  individualUsers: number; 
   totalOffset: number;
 }
 
 export const UserStatistics = ({
   totalUsers,
   activeUsers,
-  totalEmissions,
+  businessUsers,
+  individualUsers,
   totalOffset,
 }: UserStatisticsProps) => {
   return (
@@ -33,14 +35,16 @@ export const UserStatistics = ({
 
       <Card className="hover:shadow-md transition-shadow duration-200">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Emissions</CardTitle>
-          <Building className="h-4 w-4 text-orange-600" />
+          <CardTitle className="text-sm font-medium">Total Business Users</CardTitle>
+          <Building2 className="h-4 w-4 text-carbon-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-orange-700">
-            {totalEmissions.toLocaleString()}
+          <div className="text-2xl font-bold text-carbon-700">
+            {businessUsers.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">Tons CO₂ tracked</p>
+          <p className="text-xs text-muted-foreground">
+            {individualUsers.toLocaleString()} individual users
+          </p>
         </CardContent>
       </Card>
 
@@ -49,10 +53,10 @@ export const UserStatistics = ({
           <CardTitle className="text-sm font-medium">
             Total Offset By Users
           </CardTitle>
-          <Coins className="h-4 w-4 text-blue-600" />
+          <Coins className="h-4 w-4 text-green-600" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold text-blue-700">
+          <div className="text-2xl font-bold text-green-700">
             {totalOffset.toFixed(2)}
           </div>
           <p className="text-xs text-muted-foreground">CO₂ tonnes offset</p>

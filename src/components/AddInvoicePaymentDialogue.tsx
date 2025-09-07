@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload, FileText } from "lucide-react";
 
 interface AddInvoicePaymentDialogProps {
   isOpen: boolean;
@@ -18,7 +18,7 @@ interface AddInvoicePaymentDialogProps {
     amount: string;
     transaction_id: string;
     notes: string;
-    payment_file: string;
+    payment_file: File | null;
   }) => Promise<void>;
   isSubmitting: boolean;
   invoiceNumber?: string;
@@ -35,8 +35,9 @@ export default function AddInvoicePaymentDialog({
     amount: "",
     transaction_id: "",
     notes: "",
-    payment_file: "",
+    payment_file: null as File | null,
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async () => {
     await onAddPayment(newInvoicePayment);
@@ -44,7 +45,7 @@ export default function AddInvoicePaymentDialog({
       amount: "",
       transaction_id: "",
       notes: "",
-      payment_file: "",
+      payment_file: null,
     });
   };
 
@@ -53,9 +54,27 @@ export default function AddInvoicePaymentDialog({
       amount: "",
       transaction_id: "",
       notes: "",
-      payment_file: "",
+      payment_file: null,
     });
     onClose();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setNewInvoicePayment({
+      ...newInvoicePayment,
+      payment_file: file,
+    });
+  };
+
+  const removeFile = () => {
+    setNewInvoicePayment({
+      ...newInvoicePayment,
+      payment_file: null,
+    });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   useEffect(() => {
@@ -64,7 +83,7 @@ export default function AddInvoicePaymentDialog({
         amount: "",
         transaction_id: "",
         notes: "",
-        payment_file: "",
+        payment_file: null,
       });
     }
   }, [isOpen]);
@@ -80,7 +99,7 @@ export default function AddInvoicePaymentDialog({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
-            <Label htmlFor="invoice-amount">Amount</Label>
+            <Label htmlFor="invoice-amount">Amount *</Label>
             <Input
               id="invoice-amount"
               type="number"
@@ -92,10 +111,11 @@ export default function AddInvoicePaymentDialog({
                 })
               }
               placeholder="Enter amount"
+              required
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="invoice-transaction-id">Transaction ID</Label>
+            <Label htmlFor="invoice-transaction-id">Transaction ID *</Label>
             <Input
               id="invoice-transaction-id"
               value={newInvoicePayment.transaction_id}
@@ -106,6 +126,7 @@ export default function AddInvoicePaymentDialog({
                 })
               }
               placeholder="Enter transaction ID"
+              required
             />
           </div>
           <div className="space-y-2">
@@ -123,18 +144,45 @@ export default function AddInvoicePaymentDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="invoice-payment-file">Payment File</Label>
-            <Input
-              id="invoice-payment-file"
-              value={newInvoicePayment.payment_file}
-              onChange={(e) =>
-                setNewInvoicePayment({
-                  ...newInvoicePayment,
-                  payment_file: e.target.value,
-                })
-              }
-              placeholder="Enter file reference (string)"
-            />
+            <Label htmlFor="invoice-payment-file">Payment Receipt</Label>
+            <div className="flex flex-col gap-2">
+              <Input
+                id="invoice-payment-file"
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Choose File
+              </Button>
+              {newInvoicePayment.payment_file && (
+                <div className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <span className="text-sm truncate max-w-[200px]">
+                      {newInvoicePayment.payment_file.name}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeFile}
+                    className="h-8 w-8 p-0"
+                  >
+                    ×
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex justify-end gap-2">

@@ -58,14 +58,10 @@ interface UpdateUserData {
 
 interface UsersState {
   apiUsers: User[];
+  filteredUsers: User[];
   loading: boolean;
   error: string | null;
-  fetchUsers: (
-    accessToken: string,
-    filters?: FilterParams,
-    page?: number,
-    limit?: number
-  ) => Promise<void>;
+  fetchUsers: (accessToken: string, filters?: FilterParams) => Promise<void>;
   createUser: (
     accessToken: string,
     userData: {
@@ -86,42 +82,28 @@ interface UsersState {
     isActive: boolean
   ) => Promise<void>;
   totalCount: number;
+  filteredCount: number;
 }
 
 export const useUsersStore = create<UsersState>()(
   persist(
     (set, get) => ({
       apiUsers: [],
+      filteredUsers: [],
       loading: false,
       error: null,
       totalCount: 0,
+      filteredCount: 0,
 
-      fetchUsers: async (
-        accessToken: string,
-        filters?: FilterParams,
-        page = 1,
-        limit = 10
-      ) => {
+      fetchUsers: async (accessToken: string, filters?: FilterParams) => {
         set({ loading: true, error: null });
         try {
-          const url = new URL(
+          // fetch ALL users without filters
+          const allUsersUrl = new URL(
             `${import.meta.env.VITE_API_URL}/api/users/users`
           );
 
-          // parameters
-          url.searchParams.append("page", page.toString());
-          url.searchParams.append("limit", limit.toString());
-
-          // Add filter parameters
-          if (filters) {
-            Object.entries(filters).forEach(([key, value]) => {
-              if (value && value.trim() !== "") {
-                url.searchParams.append(key, value);
-              }
-            });
-          }
-
-          const response = await fetch(url.toString(), {
+          const allUsersResponse = await fetch(allUsersUrl.toString(), {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
@@ -129,21 +111,56 @@ export const useUsersStore = create<UsersState>()(
             },
           });
 
-          if (!response.ok) throw new Error("Failed to fetch users");
+          if (!allUsersResponse.ok) throw new Error("Failed to fetch users");
 
-          const data = await response.json();
+          const allUsersData = await allUsersResponse.json();
 
-          // Filter out super_admin users
-          const filteredUsers = data.users.filter(
+          // Filter out super_admin from all users
+          const allUsers = allUsersData.users.filter(
             (user: User) => user.role !== "super_admin"
           );
 
-          const startIndex = (page - 1) * limit;
-          const endIndex = startIndex + limit;
+          // If no filters, use all users as filtered users
+          let filteredUsersData = allUsers;
+
+          // filters are provided
+          if (
+            filters &&
+            Object.values(filters).some((value) => value && value.trim() !== "")
+          ) {
+            const filteredUrl = new URL(
+              `${import.meta.env.VITE_API_URL}/api/users/users`
+            );
+
+            // filter parameters
+            Object.entries(filters).forEach(([key, value]) => {
+              if (value && value.trim() !== "") {
+                filteredUrl.searchParams.append(key, value);
+              }
+            });
+
+            const filteredResponse = await fetch(filteredUrl.toString(), {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+            });
+
+            if (!filteredResponse.ok)
+              throw new Error("Failed to fetch filtered users");
+
+            const filteredData = await filteredResponse.json();
+            filteredUsersData = filteredData.users.filter(
+              (user: User) => user.role !== "super_admin"
+            );
+          }
 
           set({
-            apiUsers: filteredUsers.slice(startIndex, endIndex),
-            totalCount: filteredUsers.length,
+            apiUsers: allUsers,
+            filteredUsers: filteredUsersData,
+            totalCount: allUsers.length,
+            filteredCount: filteredUsersData.length,
           });
         } catch (error) {
           set({
