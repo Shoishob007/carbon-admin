@@ -71,27 +71,32 @@ export default function PaymentDetailsDialog({
           </div>
         ) : selectedPayment ? (
           <div className="flex-1 overflow-y-auto">
-            {/* Customer Information */}
-            {role !== "business" && (
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">
-                    Customer Name
-                  </Label>
-                  <p className="text-sm mt-1 font-medium">
-                    {selectedPayment.user_name || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-700">
-                    Customer Email
-                  </Label>
-                  <p className="text-sm mt-1 font-medium">
-                    {selectedPayment.user_email || "N/A"}
-                  </p>
-                </div>
-              </div>
-            )}
+{/* Customer Information */}
+{role === "super_admin" && (
+  <div className="grid grid-cols-2 gap-4 mb-4">
+    <div>
+      <Label className="text-sm font-medium text-gray-700">
+        Customer Name
+      </Label>
+      <p className="text-sm mt-1 font-medium">
+        {typeof selectedPayment.user === "object"
+          ? selectedPayment.user?.name
+          : selectedPayment.user_name || "N/A"}
+      </p>
+    </div>
+    <div>
+      <Label className="text-sm font-medium text-gray-700">
+        Customer Email
+      </Label>
+      <p className="text-sm mt-1 font-medium">
+        {typeof selectedPayment.user === "object"
+          ? selectedPayment.user?.email
+          : selectedPayment.user_email || "N/A"}
+      </p>
+    </div>
+  </div>
+)}
+
 
             {/* Payment Information */}
             <div className="space-y-4">
@@ -289,14 +294,17 @@ export default function PaymentDetailsDialog({
                           {selectedPayment.payment_method}
                         </p>
                       </div>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700">
-                          User ID
-                        </Label>
-                        <p className="text-sm mt-1 font-medium">
-                          {selectedPayment.user}
-                        </p>
-                      </div>
+<div>
+  <Label className="text-sm font-medium text-gray-700">
+    User ID
+  </Label>
+  <p className="text-sm mt-1 font-medium">
+    {typeof selectedPayment.user === "object"
+      ? selectedPayment.user?.id
+      : selectedPayment.user}
+  </p>
+</div>
+
                     </div>
                   )}
                 </div>

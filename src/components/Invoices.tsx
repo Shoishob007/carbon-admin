@@ -53,6 +53,8 @@ export default function InvoicesComponent({
     endIndex: invoicesEndIndex,
   } = paginateInvoices(invoices);
 
+  // console.log("PAginated Invoices :: ", paginatedInvoices)
+
   return (
     <Card>
       <CardHeader>

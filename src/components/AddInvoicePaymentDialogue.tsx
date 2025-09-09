@@ -18,7 +18,7 @@ interface AddInvoicePaymentDialogProps {
     amount: string;
     transaction_id: string;
     notes: string;
-    payment_file: File | null;
+    // payment_file: File | null;
   }) => Promise<void>;
   isSubmitting: boolean;
   invoiceNumber?: string;
@@ -35,7 +35,7 @@ export default function AddInvoicePaymentDialog({
     amount: "",
     transaction_id: "",
     notes: "",
-    payment_file: null as File | null,
+    // payment_file: null as File | null,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,7 +45,7 @@ export default function AddInvoicePaymentDialog({
       amount: "",
       transaction_id: "",
       notes: "",
-      payment_file: null,
+      // payment_file: null,
     });
   };
 
@@ -54,23 +54,23 @@ export default function AddInvoicePaymentDialog({
       amount: "",
       transaction_id: "",
       notes: "",
-      payment_file: null,
+      // payment_file: null,
     });
     onClose();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setNewInvoicePayment({
-      ...newInvoicePayment,
-      payment_file: file,
-    });
-  };
+  // const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0] || null;
+  //   setNewInvoicePayment({
+  //     ...newInvoicePayment,
+  //     // payment_file: file,
+  //   });
+  // };
 
   const removeFile = () => {
     setNewInvoicePayment({
       ...newInvoicePayment,
-      payment_file: null,
+      // payment_file: null,
     });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -83,7 +83,7 @@ export default function AddInvoicePaymentDialog({
         amount: "",
         transaction_id: "",
         notes: "",
-        payment_file: null,
+        // payment_file: null,
       });
     }
   }, [isOpen]);
@@ -143,7 +143,7 @@ export default function AddInvoicePaymentDialog({
               placeholder="Enter payment notes"
             />
           </div>
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <Label htmlFor="invoice-payment-file">Payment Receipt</Label>
             <div className="flex flex-col gap-2">
               <Input
@@ -183,7 +183,7 @@ export default function AddInvoicePaymentDialog({
                 </div>
               )}
             </div>
-          </div>
+          </div> */}
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={handleClose}>

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Card,
   CardContent,
@@ -45,7 +46,7 @@ interface CarbonOffsetDetails {
 
 interface Payment {
   id: number;
-  user: number;
+  user: any;
   user_name?: string;
   user_email?: string;
   amount: string;
@@ -78,15 +79,17 @@ export default function CustomerPayments({
   const [paymentType, setPaymentType] = useState<string>("subscription");
 
   // console.log("Payments :: ", payments)
-  //   console.log("subscriptionPayments :: ", subscriptionPayments)
+  console.log("subscriptionPayments :: ", subscriptionPayments);
   // console.log("offsetPayments :: ", offsetPayments)
 
   const displayedPayments =
     paymentType === "subscription"
       ? subscriptionPayments.length > 0
         ? subscriptionPayments
-        : payments
-      : offsetPayments;
+        : payments.filter((p) => p.payment_type === "subscription")
+      : offsetPayments.length > 0
+      ? offsetPayments
+      : payments.filter((p) => p.payment_type === "offset");
 
   // Pagination
   const {
@@ -105,7 +108,7 @@ export default function CustomerPayments({
     endIndex: paymentsEndIndex,
   } = paginatePayments(displayedPayments);
 
-  console.log("paginatedPayments::  ", paginatedPayments);
+  // console.log("paginatedPayments::  ", paginatedPayments);
 
   return (
     <Card>
@@ -138,7 +141,7 @@ export default function CustomerPayments({
         <Table>
           <TableHeader>
             <TableRow>
-              {role !== "business" && <TableHead>Customer</TableHead>}
+              {role === "super_admin" && <TableHead>Customer</TableHead>}
 
               {/* Conditional columns */}
               {paymentType === "subscription" ? (
@@ -164,11 +167,17 @@ export default function CustomerPayments({
           <TableBody>
             {paginatedPayments.map((payment) => (
               <TableRow key={payment.id}>
-                {role !== "business" && (
+                {role === "super_admin" && (
                   <TableCell className="font-medium">
-                    <div>{payment.user_name || "N/A"}</div>
+                    <div>
+                      {paymentType === "subscription"
+                        ? payment.user_name || "N/A"
+                        : payment.user.name || "N/A"}
+                    </div>
                     <div className="text-sm text-muted-foreground">
-                      {payment.user_email || "N/A"}
+                      {paymentType === "subscription"
+                        ? payment.user_email || "N/A"
+                        : payment.user?.email || "N/A"}
                     </div>
                   </TableCell>
                 )}
@@ -207,21 +216,46 @@ export default function CustomerPayments({
                 </TableCell>
                 <TableCell>
                   {role === "super_admin" ? (
-                    <Select
-                      value={payment.payment_status}
-                      onValueChange={(value) =>
-                        onStatusChange(payment.id, value)
-                      }
-                    >
-                      <SelectTrigger className="w-32">
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="cancelled">Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    paymentType === "subscription" ? (
+                      <Select
+                        value={payment.payment_status}
+                        onValueChange={(value) =>
+                          onStatusChange(payment.id, value)
+                        }
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      // For carbon offsets → read-only badge
+                      <Badge
+                        variant={
+                          payment.payment_status === "completed"
+                            ? "default"
+                            : payment.payment_status === "pending"
+                            ? "secondary"
+                            : "destructive"
+                        }
+                        className={
+                          payment.payment_status === "completed"
+                            ? "bg-green-500"
+                            : payment.payment_status === "pending"
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                        }
+                      >
+                        {payment.payment_status
+                          ? payment.payment_status.charAt(0).toUpperCase() +
+                            payment.payment_status.slice(1)
+                          : "N/A"}
+                      </Badge>
+                    )
                   ) : (
                     <Badge
                       variant={
@@ -246,6 +280,7 @@ export default function CustomerPayments({
                     </Badge>
                   )}
                 </TableCell>
+
                 <TableCell>
                   <Button
                     variant="ghost"

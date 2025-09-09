@@ -373,9 +373,27 @@ export const useBillingStore = create<BillingState>()(
             throw new Error("Failed to update payment status");
           }
 
+          set((state) => ({
+            payments: state.payments.map((payment) =>
+              payment.id === paymentId
+                ? { ...payment, payment_status: status }
+                : payment
+            ),
+            subscriptionPayments: state.subscriptionPayments.map((payment) =>
+              payment.id === paymentId
+                ? { ...payment, payment_status: status }
+                : payment
+            ),
+            offsetPayments: state.offsetPayments.map((payment) =>
+              payment.id === paymentId
+                ? { ...payment, payment_status: status }
+                : payment
+            ),
+          }));
+
           // payments after update
           const { fetchPayments } = useBillingStore.getState();
-          await fetchPayments(accessToken, "admin");
+          await fetchPayments(accessToken, "super_admin");
         } catch (error) {
           console.error("Error updating payment status:", error);
           throw error;

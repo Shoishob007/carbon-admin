@@ -17,7 +17,6 @@ import { Invoice } from "@/types/billing";
 import AddPaymentDialog from "@/components/AddPaymentDialogue";
 import AddInvoicePaymentDialog from "@/components/AddInvoicePaymentDialogue";
 import UpdateInvoiceDialog from "@/components/UpdateInvoiceDialogue";
-import CreateInvoiceDialog from "@/components/CreateInvoiceDialogue";
 import CustomerPayments from "@/components/CustomerPayments";
 import InvoicesComponent from "@/components/Invoices";
 
@@ -32,7 +31,6 @@ export default function Billing() {
     fetchPayments,
     fetchOffsetPayments,
     fetchSubscriptionPayments,
-    fetchPaymentHistoryById,
     fetchPaymentDetailsById,
     clearSelectedPayment,
     updatePaymentStatus,
@@ -53,7 +51,6 @@ export default function Billing() {
   } = useInvoiceStore();
 
   const { accessToken } = useAuthStore();
-  // console.log("Access Token :: ", accessToken);
   const role = useAuthStore((state) => state.user?.role);
 
   // Dialog states
@@ -72,7 +69,7 @@ export default function Billing() {
   const [currentInvoice, setCurrentInvoice] = useState<Invoice | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch data on component mount
+  // data on component mount
   useEffect(() => {
     if (accessToken && role) {
       fetchPayments(accessToken, role);
@@ -88,6 +85,8 @@ export default function Billing() {
     fetchOffsetPayments,
     fetchSubscriptionPayments,
   ]);
+
+  // console.log("Offset Payments :: ", offsetPayments);
 
   const pendingPayments = payments.filter(
     (p) => p.payment_status === "pending"
@@ -163,7 +162,7 @@ export default function Billing() {
     amount: string;
     transaction_id: string;
     notes: string;
-    payment_file: File | null;
+    // payment_file: File | null;
   }) => {
     if (!accessToken || role !== "super_admin" || !currentInvoiceId) return;
 
@@ -171,15 +170,14 @@ export default function Billing() {
     try {
       console.log("Adding invoice payment:", payment);
 
-      const res = await updateInvoicePayment(
+      await updateInvoicePayment(
         currentInvoiceId,
         payment.amount,
         payment.transaction_id,
         payment.notes,
-        payment.payment_file,
+        // payment.payment_file,
         accessToken
       );
-      // console.log("Response :: ", res)
 
       setIsAddInvoicePaymentDialogOpen(false);
       setCurrentInvoiceId(null);
@@ -221,28 +219,6 @@ export default function Billing() {
     setCurrentInvoice(invoice);
     setCurrentInvoiceId(invoice.id);
     setIsUpdateInvoiceDialogOpen(true);
-  };
-
-  const handleCreateInvoice = async (invoiceData: {
-    user: number;
-    subscription: number;
-    total_amount: string;
-    due_date: string;
-    description: string;
-    message: string;
-    status: string;
-  }) => {
-    if (!accessToken || role !== "super_admin") return;
-
-    setIsSubmitting(true);
-    try {
-      await createInvoice(invoiceData, accessToken);
-      setIsCreateInvoiceDialogOpen(false);
-    } catch (error) {
-      console.error("Error creating invoice:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   if (
@@ -423,13 +399,6 @@ export default function Billing() {
         onUpdateInvoice={handleUpdateInvoice}
         isSubmitting={isSubmitting}
         invoice={currentInvoice}
-      />
-
-      <CreateInvoiceDialog
-        isOpen={isCreateInvoiceDialogOpen}
-        onClose={() => setIsCreateInvoiceDialogOpen(false)}
-        onCreateInvoice={handleCreateInvoice}
-        isSubmitting={isSubmitting}
       />
     </div>
   );

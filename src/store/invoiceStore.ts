@@ -10,14 +10,14 @@ interface InvoiceStore {
   fetchInvoices: (accessToken: string, role: string) => Promise<void>;
   fetchInvoiceById: (invoiceId: number, accessToken: string) => Promise<void>;
   clearSelectedInvoice: () => void;
-updateInvoicePayment: (
-  invoiceId: number,
-  amount: string,
-  transactionId: string,
-  notes: string,
-  payment_file: File | null,
-  accessToken: string
-) => Promise<void>;
+  updateInvoicePayment: (
+    invoiceId: number,
+    amount: string,
+    transactionId: string,
+    notes: string,
+    // payment_file: File | null,
+    accessToken: string
+  ) => Promise<void>;
   updateInvoiceInfo: (
     invoiceId: number,
     invoiceData: {
@@ -66,7 +66,7 @@ export const useInvoiceStore = create<InvoiceStore>((set) => ({
       });
 
       if (!response.ok) {
-        // Try to parse error details from response
+        // error details from response
         let errorMessage = "Failed to fetch invoices";
         try {
           const errorData = await response.json();
@@ -127,71 +127,63 @@ export const useInvoiceStore = create<InvoiceStore>((set) => ({
 
   clearSelectedInvoice: () => set({ selectedInvoice: null }),
 
-updateInvoicePayment: async (
-  invoiceId: string | number,
-  amount: string | number,
-  transactionId: string,
-  notes: string,
-  payment_file: File | null,
-  accessToken: string
-) => {
-  try {
-    set({ loading: true, error: null });
+  updateInvoicePayment: async (
+    invoiceId: number,
+    amount: string,
+    transactionId: string,
+    notes: string,
+    // payment_file: File | null,
+    accessToken: string
+  ) => {
+    try {
+      set({ loading: true, error: null });
+      const paymentData = {
+        amount: amount,
+        transaction_id: transactionId,
+        notes: notes || "",
+        // payment_file: fileUrl
+      };
 
-    const paymentAmount = typeof amount === "number" ? amount.toFixed(2) : amount;
+      console.log("Sending payment data:", paymentData);
 
-    // Create FormData instead of JSON
-    const formData = new FormData();
-    formData.append("amount", paymentAmount);
-    formData.append("transaction_id", transactionId);
-    
-    if (notes) {
-      formData.append("notes", notes);
-    }
-    
-    if (payment_file) {
-      formData.append("payment_file", payment_file);
-    }
+      const response = await fetch(
+        `${
+          import.meta.env.VITE_API_URL
+        }/api/subscription/admin/invoice-payment/${invoiceId}/`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(paymentData),
+        }
+      );
 
-    console.log("📤 Sending PATCH request with FormData");
-
-    const response = await fetch(
-      `${import.meta.env.VITE_API_URL}/api/subscription/admin/invoices/${invoiceId}/`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: formData,
+      if (!response.ok) {
+        let errorMessage = "Failed to add invoice payment";
+        try {
+          const errorData = await response.json();
+          if (errorData?.message) errorMessage = errorData.message;
+          else if (errorData?.detail) errorMessage = errorData.detail;
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(errorMessage);
       }
-    );
 
-    console.log("📥 Response status:", response.status);
-
-    if (!response.ok) {
-      let errorMessage = "Failed to add invoice payment";
-      try {
-        const errorData = await response.json();
-        console.error("❌ Error response:", errorData);
-        if (errorData?.message) errorMessage = errorData.message;
-        else if (errorData?.detail) errorMessage = errorData.detail;
-      } catch {
-        // ignore parse errors
-      }
-      throw new Error(errorMessage);
+      await useInvoiceStore
+        .getState()
+        .fetchInvoices(accessToken, "super_admin");
+      set({ loading: false });
+    } catch (error: any) {
+      set({
+        error: error.message || "Failed to add invoice payment",
+        loading: false,
+      });
+      throw error;
     }
-
-    await useInvoiceStore.getState().fetchInvoices(accessToken, "super_admin");
-    set({ loading: false });
-  } catch (error: any) {
-    set({
-      error: error.message || "Failed to add invoice payment",
-      loading: false,
-    });
-    throw error;
-  }
-},
-
+  },
 
   updateInvoiceInfo: async (
     invoiceId: number,
