@@ -55,8 +55,10 @@ import RichTextEditor from "@/components/RichTextEditor";
 
 const categories = ["All Categories", "Blog", "News", "Tutorial", "Guide"];
 import FileUpload from "@/components/FileUpload";
+import { Switch } from "@/components/ui/switch";
 
 export default function Blogs() {
+  const role = useAuthStore((state) => state.user?.role);
   const accessToken = useAuthStore((state) => state.accessToken);
   const {
     posts,
@@ -66,6 +68,7 @@ export default function Blogs() {
     createPost,
     deletePost,
     updatePost,
+    updatePostStatus,
     getImageUrl,
   } = useBlogStore();
 
@@ -104,12 +107,6 @@ export default function Blogs() {
     return text.length > maxLength
       ? text.substring(0, maxLength) + "..."
       : text;
-  };
-
-  // Get image URL with fallback priority
-  const getPostImageUrl = (post: BlogPost) => {
-    const imageUrl = getImageUrl(post);
-    return imageUrl || "";
   };
 
   // filter and sort posts
@@ -583,6 +580,7 @@ export default function Blogs() {
                     Date
                   </div>
                 </TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -628,6 +626,33 @@ export default function Blogs() {
                   </TableCell>
                   <TableCell>{post.sub_category}</TableCell>
                   <TableCell>{post.date}</TableCell>
+                  <TableCell>
+                    {role === "super_admin" ? (
+                      <Switch
+                        checked={post.is_active}
+                        onCheckedChange={async (checked) => {
+                          try {
+                            await updatePostStatus(
+                              post.id,
+                              checked,
+                              accessToken!
+                            );
+                          } catch (err) {
+                            console.error("Failed to update status:", err);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <Badge
+                        variant={post.is_active ? "default" : "secondary"}
+                        className={
+                          post.is_active ? "bg-green-500" : "bg-gray-400"
+                        }
+                      >
+                        {post.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Button

@@ -15,7 +15,7 @@ interface InvoiceStore {
     amount: string,
     transactionId: string,
     notes: string,
-    // payment_file: File | null,
+    paymentFile: File | null,
     accessToken: string
   ) => Promise<void>;
   updateInvoiceInfo: (
@@ -127,63 +127,67 @@ export const useInvoiceStore = create<InvoiceStore>((set) => ({
 
   clearSelectedInvoice: () => set({ selectedInvoice: null }),
 
-  updateInvoicePayment: async (
-    invoiceId: number,
-    amount: string,
-    transactionId: string,
-    notes: string,
-    // payment_file: File | null,
-    accessToken: string
-  ) => {
-    try {
-      set({ loading: true, error: null });
-      const paymentData = {
-        amount: amount,
-        transaction_id: transactionId,
-        notes: notes || "",
-        // payment_file: fileUrl
-      };
+updateInvoicePayment: async (
+  invoiceId: number,
+  amount: string,
+  transactionId: string,
+  notes: string,
+  paymentFile: File | null,
+  accessToken: string
+) => {
+  try {
+    set({ loading: true, error: null });
 
-      console.log("Sending payment data:", paymentData);
-
-      const response = await fetch(
-        `${
-          import.meta.env.VITE_API_URL
-        }/api/subscription/admin/invoice-payment/${invoiceId}/`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(paymentData),
-        }
-      );
-
-      if (!response.ok) {
-        let errorMessage = "Failed to add invoice payment";
-        try {
-          const errorData = await response.json();
-          if (errorData?.message) errorMessage = errorData.message;
-          else if (errorData?.detail) errorMessage = errorData.detail;
-        } catch {
-          // ignore parse errors
-        }
-        throw new Error(errorMessage);
-      }
-
-      await useInvoiceStore
-        .getState()
-        .fetchInvoices(accessToken, "super_admin");
-      set({ loading: false });
-    } catch (error: any) {
-      set({
-        error: error.message || "Failed to add invoice payment",
-        loading: false,
-      });
-      throw error;
+    const formData = new FormData();
+    formData.append("amount", amount);
+    formData.append("transaction_id", transactionId);
+    formData.append("notes", notes || "");
+    if (paymentFile) {
+      formData.append("payment_file", paymentFile);
     }
-  },
+
+    console.log("Sending payment data:", {
+      amount,
+      transactionId,
+      notes,
+      paymentFile: paymentFile ? paymentFile.name : null,
+    });
+
+    const response = await fetch(
+      `${import.meta.env.VITE_API_URL}/api/subscription/admin/invoice-payment/${invoiceId}/`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          // ❌ DO NOT set Content-Type, fetch will handle it with FormData
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      let errorMessage = "Failed to add invoice payment";
+      try {
+        const errorData = await response.json();
+        if (errorData?.message) errorMessage = errorData.message;
+        else if (errorData?.detail) errorMessage = errorData.detail;
+      } catch {
+        // ignore parse errors
+      }
+      throw new Error(errorMessage);
+    }
+
+    await useInvoiceStore.getState().fetchInvoices(accessToken, "super_admin");
+    set({ loading: false });
+  } catch (error: any) {
+    set({
+      error: error.message || "Failed to add invoice payment",
+      loading: false,
+    });
+    throw error;
+  }
+},
+
 
   updateInvoiceInfo: async (
     invoiceId: number,

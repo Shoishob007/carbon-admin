@@ -158,35 +158,37 @@ export default function Billing() {
     clearSelectedInvoice();
   };
 
-  const handleAddInvoicePayment = async (payment: {
-    amount: string;
-    transaction_id: string;
-    notes: string;
-    // payment_file: File | null;
-  }) => {
-    if (!accessToken || role !== "super_admin" || !currentInvoiceId) return;
+const handleAddInvoicePayment = async (payment: {
+  amount: string;
+  transaction_id: string;
+  notes: string;
+  payment_file: File | null;
+}) => {
+  if (!accessToken || role !== "super_admin" || !currentInvoiceId) return;
 
-    setIsSubmitting(true);
-    try {
-      console.log("Adding invoice payment:", payment);
+  setIsSubmitting(true);
+  try {
+    console.log("Adding invoice payment:", payment);
 
-      await updateInvoicePayment(
-        currentInvoiceId,
-        payment.amount,
-        payment.transaction_id,
-        payment.notes,
-        // payment.payment_file,
-        accessToken
-      );
+    await updateInvoicePayment(
+      currentInvoiceId,
+      payment.amount,
+      payment.transaction_id,
+      payment.notes,
+      payment.payment_file,
+      accessToken
+    );
 
-      setIsAddInvoicePaymentDialogOpen(false);
-      setCurrentInvoiceId(null);
-    } catch (error) {
-      console.error("Error adding invoice payment:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    setIsAddInvoicePaymentDialogOpen(false);
+    setCurrentInvoiceId(null);
+  } catch (error) {
+    console.error("Error adding invoice payment:", error);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
+
 
   const handleOpenAddInvoicePayment = (invoice: Invoice) => {
     setCurrentInvoiceId(invoice.id);
@@ -264,13 +266,13 @@ export default function Billing() {
                 <Plus className="mr-2 h-4 w-4" />
                 Add Payment
               </Button>
-              <Button
+              {/* <Button
                 onClick={() => setIsCreateInvoiceDialogOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Create Invoice
-              </Button>
+              </Button> */}
             </>
           )}
         </div>

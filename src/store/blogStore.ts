@@ -17,7 +17,7 @@ export interface BlogPost {
 export interface CreateBlogPost {
   title: string;
   excerpt: string;
-  image?: File | null; // Changed to File for form data
+  image?: File | null;
   link?: string;
   author: string;
   category: string;
@@ -27,7 +27,7 @@ export interface CreateBlogPost {
 
 export interface UpdateBlogPost extends Partial<Omit<CreateBlogPost, "image">> {
   id: number;
-  image?: File | null; // Changed to File for form data
+  image?: File | null;
 }
 
 interface BlogStore {
@@ -42,6 +42,11 @@ interface BlogStore {
   updatePost: (
     post: UpdateBlogPost,
     accessToken?: string | null
+  ) => Promise<void>;
+  updatePostStatus: (
+    id: number,
+    isActive: boolean,
+    accessToken: string
   ) => Promise<void>;
   deletePost: (id: number, accessToken?: string | null) => Promise<void>;
   getPostById: (id: number) => BlogPost | undefined;
@@ -203,6 +208,49 @@ export const useBlogStore = create<BlogStore>((set, get) => ({
       const updatedPost: BlogPost = await response.json();
       set((state) => ({
         posts: state.posts.map((p) => (p.id === post.id ? updatedPost : p)),
+        loading: false,
+      }));
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "An error occurred",
+        loading: false,
+      });
+      throw error;
+    }
+  },
+
+  updatePostStatus: async (
+    id: number,
+    is_active: boolean,
+    accessToken?: string | null
+  ) => {
+    set({ loading: true, error: null });
+    try {
+      const formData = new FormData();
+      formData.append("is_active", String(is_active));
+
+      const headers: HeadersInit = {};
+      if (accessToken) {
+        headers.Authorization = `Bearer ${accessToken}`;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/articles/posts/${id}`,
+        {
+          method: "PATCH",
+          headers,
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || "Failed to update status");
+      }
+
+      const updatedPost: BlogPost = await response.json();
+      set((state) => ({
+        posts: state.posts.map((p) => (p.id === id ? updatedPost : p)),
         loading: false,
       }));
     } catch (error) {
