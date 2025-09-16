@@ -53,14 +53,14 @@ export const routes: AppRoute[] = [
     path: "/blogs/:id",
     component: BlogDetails,
     layout: "dashboard",
-    roles: ["super_admin"],
+    roles: ["super_admin", "business", "individual"],
   },
-  {
-    path: "/blogs/create",
-    component: BlogDetails,
-    layout: "dashboard",
-    roles: ["super_admin"],
-  },
+  // {
+  //   path: "/blogs/create",
+  //   component: BlogDetails,
+  //   layout: "dashboard",
+  //   roles: ["super_admin"],
+  // },
   {
     path: "/subscriptions",
     component: Subscriptions,

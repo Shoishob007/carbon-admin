@@ -18,10 +18,26 @@ export default function BlogDetails() {
         return;
       }
 
+      // Check if the post ID is valid
+      const postId = parseInt(id);
+      if (isNaN(postId)) {
+        setError("Invalid post ID");
+        setLoading(false);
+        return;
+      }
+
       try {
-        if (posts.length === 0) {
+        // Always fetch posts if we don't have them or if we're looking for a specific post
+        if (posts.length === 0 || !getPostById(postId)) {
           await fetchPosts();
         }
+        
+        // After fetching, check if we now have the post
+        const post = getPostById(postId);
+        if (!post) {
+          setError("Post not found");
+        }
+        
         setLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
@@ -30,12 +46,9 @@ export default function BlogDetails() {
     };
 
     loadPost();
-  }, [id, posts.length, fetchPosts]);
-
-  console.log("Posts :: ", posts);
+  }, [id, posts.length, fetchPosts, getPostById]);
 
   const post = id ? getPostById(parseInt(id)) : null;
-  console.log("Post Details:", post);
 
   const handleGoBack = () => {
     navigate("/blogs");
@@ -50,7 +63,7 @@ export default function BlogDetails() {
       <section className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <span className="text-lg text-muted-foreground">Loading...</span>
+          <span className="text-lg text-muted-foreground">Loading post...</span>
         </div>
       </section>
     );
@@ -59,9 +72,18 @@ export default function BlogDetails() {
   if (error || !post) {
     return (
       <section className="flex items-center justify-center min-h-[60vh]">
-        <span className="text-lg text-muted-foreground">
-          {error || "Post not found."}
-        </span>
+        <div className="text-center space-y-4">
+          <span className="text-lg text-muted-foreground">
+            {error || "Post not found."}
+          </span>
+          <button
+            onClick={handleGoBack}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Blogs
+          </button>
+        </div>
       </section>
     );
   }
@@ -129,15 +151,6 @@ export default function BlogDetails() {
                   {post.category}
                 </span>
               </div>
-
-              {/* Sub-category if exists */}
-              {/* {post.sub_category && (
-                <div className="mb-2">
-                  <span className="inline-block bg-gray-100 text-gray-700 rounded-full px-3 py-1 text-xs font-medium">
-                    {post.sub_category}
-                  </span>
-                </div>
-              )} */}
 
               {/* Title and Author */}
               <h1 className="text-2xl sm:text-3xl font-bold text-[#163820] mb-2">
@@ -284,7 +297,7 @@ export default function BlogDetails() {
   display: list-item;
 }
 
-/* Handle nested lists if any */
+/* Handle nested lists */
 .prose-green ul ul,
 .prose-green ol ol,
 .prose-green ul ol,
@@ -300,6 +313,22 @@ export default function BlogDetails() {
 
 .prose-green ul ul ul {
   list-style-type: square;
+}
+
+.prose-green ol ol {
+  list-style-type: lower-alpha;
+}
+
+.prose-green ol ol ol {
+  list-style-type: lower-roman;
+}
+
+.prose-green ul ol {
+  list-style-type: decimal;
+}
+
+.prose-green ol ul {
+  list-style-type: disc;
 }
 
 .prose-green blockquote {
