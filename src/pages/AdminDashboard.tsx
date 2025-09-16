@@ -169,22 +169,23 @@ export default function AdminDashboard() {
       "Dec",
     ];
     const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth();
 
-    // Initialize all 12 months (Jan to Dec) for the current year
+    // all 12 months (Jan to Dec) for the current year
     const allMonthsData = monthNames.map((monthName, i) => ({
       month: `${monthName} ${currentYear.toString().slice(-2)}`,
       users: 0,
       monthIndex: i,
     }));
 
-    // Count users per month
+    // users per month
     apiUsers.forEach((user) => {
       if (user.profile?.created_at) {
         const date = new Date(user.profile.created_at);
         const monthIndex = date.getMonth();
         const year = date.getFullYear();
 
-        // Count if it's current year
+        // if it's current year
         if (year === currentYear) {
           const monthData = allMonthsData[monthIndex];
           if (monthData) {
@@ -194,14 +195,22 @@ export default function AdminDashboard() {
       }
     });
 
-    // Convert to cumulative users
+    // cumulative users only up to current month
     let cumulative = 0;
-    return allMonthsData.map((item) => {
-      cumulative += item.users;
-      return {
-        month: item.month,
-        users: cumulative,
-      };
+    return allMonthsData.map((item, index) => {
+      if (index <= currentMonth) {
+        // for current and past months, showing cumulative data
+        cumulative += item.users;
+        return {
+          month: item.month,
+          users: cumulative,
+        };
+      } else {
+        return {
+          month: item.month,
+          users: 0,
+        };
+      }
     });
   }, [apiUsers]);
 
