@@ -1,3 +1,4 @@
+/* eslint-disable prefer-const */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useRef, useEffect } from 'react';
 import { 
@@ -14,7 +15,9 @@ import {
   Heading2,
   Heading3,
   Quote,
-  Code
+  Code,
+  Indent,
+  Outdent
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 
@@ -53,7 +56,6 @@ export default function RichTextEditor({ value, onChange, placeholder, className
         const selection = window.getSelection();
         const range = document.createRange();
         
-        // Check if the saved nodes are still in the DOM
         if (editorRef.current.contains(savedPosition.startContainer) && 
             editorRef.current.contains(savedPosition.endContainer)) {
           range.setStart(savedPosition.startContainer, savedPosition.startOffset);
@@ -63,7 +65,6 @@ export default function RichTextEditor({ value, onChange, placeholder, className
           selection?.addRange(range);
         }
       } catch (error) {
-        // If restoring fails, just put cursor at the end
         const range = document.createRange();
         const selection = window.getSelection();
         range.selectNodeContents(editorRef.current);
@@ -74,7 +75,7 @@ export default function RichTextEditor({ value, onChange, placeholder, className
     }
   };
 
-  // Update editor content when value prop changes (only if not from user input)
+  // Update editor content when value prop changes
   useEffect(() => {
     if (editorRef.current && !isUpdatingFromProp) {
       const currentContent = editorRef.current.innerHTML;
@@ -83,7 +84,6 @@ export default function RichTextEditor({ value, onChange, placeholder, className
         setIsUpdatingFromProp(true);
         editorRef.current.innerHTML = value || '';
         
-        // Restore cursor position after a small delay
         setTimeout(() => {
           restoreCursorPosition(savedPosition);
           setIsUpdatingFromProp(false);
@@ -97,6 +97,145 @@ export default function RichTextEditor({ value, onChange, placeholder, className
       editorRef.current.focus();
       document.execCommand(command, false, value);
       onChange(editorRef.current.innerHTML);
+    }
+  };
+
+  // Enhanced list handling
+  const insertList = (ordered: boolean) => {
+    if (!editorRef.current || isUpdatingFromProp) return;
+    
+    editorRef.current.focus();
+    
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const currentElement = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
+      ? range.commonAncestorContainer.parentElement 
+      : range.commonAncestorContainer as Element;
+    
+    // Check if we're already in a list
+    const existingList = currentElement?.closest('ul, ol');
+    const listItem = currentElement?.closest('li');
+    
+    if (existingList && listItem) {
+      // We're in a list, toggle the list type or remove list formatting
+      const isCurrentlyOrdered = existingList.tagName === 'OL';
+      
+      if ((ordered && isCurrentlyOrdered) || (!ordered && !isCurrentlyOrdered)) {
+        // Same type, remove list formatting
+        formatText('insertHTML', listItem.innerHTML);
+      } else {
+        // Different type, change list type
+        const newListType = ordered ? 'insertOrderedList' : 'insertUnorderedList';
+        formatText(newListType);
+      }
+    } else {
+      // Not in a list, create new list
+      const command = ordered ? 'insertOrderedList' : 'insertUnorderedList';
+      formatText(command);
+    }
+  };
+
+  // Handle indentation for nested lists
+  const handleIndent = () => {
+    if (!editorRef.current || isUpdatingFromProp) return;
+    
+    editorRef.current.focus();
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const listItem = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
+      ? range.commonAncestorContainer.parentElement?.closest('li')
+      : (range.commonAncestorContainer as Element)?.closest('li');
+    
+    if (listItem) {
+      const parentList = listItem.parentElement;
+      const prevItem = listItem.previousElementSibling as HTMLLIElement;
+      
+      if (prevItem && parentList) {
+        // Create nested list
+        const isOrdered = parentList.tagName === 'OL';
+        const newList = document.createElement(isOrdered ? 'ol' : 'ul');
+        
+        // Move current item to nested list
+        newList.appendChild(listItem);
+        
+        // Check if previous item already has a nested list
+        let existingNestedList = prevItem.querySelector('ul, ol');
+        if (existingNestedList) {
+          existingNestedList.appendChild(listItem);
+        } else {
+          prevItem.appendChild(newList);
+        }
+        
+        // Update content
+        onChange(editorRef.current.innerHTML);
+        
+        // Restore focus to the moved item
+        setTimeout(() => {
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.selectNodeContents(listItem);
+          range.collapse(false);
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }, 0);
+      }
+    } else {
+      // Regular indent for non-list items
+      formatText('indent');
+    }
+  };
+
+  // Handle outdentation for nested lists
+  const handleOutdent = () => {
+    if (!editorRef.current || isUpdatingFromProp) return;
+    
+    editorRef.current.focus();
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const listItem = range.commonAncestorContainer.nodeType === Node.TEXT_NODE 
+      ? range.commonAncestorContainer.parentElement?.closest('li')
+      : (range.commonAncestorContainer as Element)?.closest('li');
+    
+    if (listItem) {
+      const parentList = listItem.parentElement;
+      const grandparentItem = parentList?.parentElement?.closest('li');
+      const grandparentList = grandparentItem?.parentElement;
+      
+      if (grandparentItem && grandparentList) {
+        // Move item to parent level
+        const nextSibling = grandparentItem.nextElementSibling;
+        if (nextSibling) {
+          grandparentList.insertBefore(listItem, nextSibling);
+        } else {
+          grandparentList.appendChild(listItem);
+        }
+        
+        // Clean up empty nested list
+        if (parentList && parentList.children.length === 0) {
+          parentList.remove();
+        }
+        
+        onChange(editorRef.current.innerHTML);
+        
+        // Restore focus
+        setTimeout(() => {
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.selectNodeContents(listItem);
+          range.collapse(false);
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+        }, 0);
+      }
+    } else {
+      // Regular outdent for non-list items
+      formatText('outdent');
     }
   };
 
@@ -144,10 +283,6 @@ export default function RichTextEditor({ value, onChange, placeholder, className
     }
   };
 
-  const insertList = (ordered: boolean) => {
-    formatText(ordered ? 'insertOrderedList' : 'insertUnorderedList');
-  };
-
   const insertHeading = (level: number) => {
     formatText('formatBlock', `h${level}`);
   };
@@ -171,6 +306,13 @@ export default function RichTextEditor({ value, onChange, placeholder, className
           e.preventDefault();
           setShowLinkDialog(true);
           break;
+      }
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        handleOutdent();
+      } else {
+        handleIndent();
       }
     }
   };
@@ -252,6 +394,26 @@ export default function RichTextEditor({ value, onChange, placeholder, className
             className="h-8 w-8 p-0"
           >
             <ListOrdered className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleIndent}
+            title="Indent (Tab)"
+            className="h-8 w-8 p-0"
+          >
+            <Indent className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleOutdent}
+            title="Outdent (Shift+Tab)"
+            className="h-8 w-8 p-0"
+          >
+            <Outdent className="h-4 w-4" />
           </Button>
         </div>
 
@@ -425,6 +587,36 @@ export default function RichTextEditor({ value, onChange, placeholder, className
         
         div[contenteditable] ol {
           list-style-type: decimal;
+        }
+        
+        /* Nested list styling */
+        div[contenteditable] ul ul {
+          list-style-type: circle;
+          margin: 0.5em 0;
+        }
+        
+        div[contenteditable] ul ul ul {
+          list-style-type: square;
+        }
+        
+        div[contenteditable] ol ol {
+          list-style-type: lower-alpha;
+          margin: 0.5em 0;
+        }
+        
+        div[contenteditable] ol ol ol {
+          list-style-type: lower-roman;
+        }
+        
+        /* Mixed nested lists */
+        div[contenteditable] ul ol {
+          list-style-type: decimal;
+          margin: 0.5em 0;
+        }
+        
+        div[contenteditable] ol ul {
+          list-style-type: disc;
+          margin: 0.5em 0;
         }
         
         div[contenteditable] li {
